@@ -33,7 +33,7 @@ def SUBSCRIPTION_KEY():
 
 @pytest.fixture(scope='session')
 def RESOURCE_URL():
-    return os.environ.get("TEST_VERACITY_RESOURCE_URL")
+    return os.environ.get("DATAFABRIC_RESOURCE_URL")
 
 
 @pytest.fixture(scope='session')

@@ -32,7 +32,7 @@ class DataFabricAPI(ApiBase):
     API_ROOT = "https://api.veracity.com/veracity/datafabric"
 
     def __init__(self, credential, subscription_key, version=None, **kwargs):
-        super().__init__(credential, subscription_key, scope=kwargs.pop('scope', 'veracity_datafabric'), **kwargs)
+        super().__init__(credential, subscription_key, scope=kwargs.pop('scope', 'veracity'), **kwargs)
         self._url = f"{DataFabricAPI.API_ROOT}/data/api/1"
         self.sas_cache = {}
         self.access_cache = {}

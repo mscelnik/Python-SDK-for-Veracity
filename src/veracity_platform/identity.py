@@ -503,11 +503,11 @@ class ClientSecretCredential(Credential):
     """
 
     def __init__(self, client_id, client_secret, resource=None, **kwargs):
-        if resource is not None:
-            # If we want to access a resource we need to use the v1 endpoints.
-            service = IdentityService(client_id, redirect_uri=None, client_secret=client_secret, api_version='v1.0')
-        else:
-            service = IdentityService(client_id, redirect_uri=None, client_secret=client_secret, api_version='v1.0')
+        # If we want to use client/secret auth we need to use the v1 endpoints.
+        service = IdentityService(client_id, redirect_uri=None, client_secret=client_secret, api_version='v1.0')
+        # if resource is not None:
+        # else:
+        #     service = IdentityService(client_id, redirect_uri=None, client_secret=client_secret, api_version='v1.0')
         super().__init__(service)
         self.resource = resource
 
