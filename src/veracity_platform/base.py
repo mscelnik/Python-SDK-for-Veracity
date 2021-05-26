@@ -28,6 +28,13 @@ class ApiBase(object):
         self._session = None
         self._headers = {}
 
+    async def __aenter__(self):
+        await self.connect()
+        return self
+
+    async def __aexit__(self, *args):
+        await self.disconnect()
+
     @property
     def connected(self):
         return self._session is not None

@@ -32,17 +32,13 @@ cred = ClientSecretCredential(client_id=CLIENT_ID, client_secret=CLIENT_SECRET, 
 async def main():
     """ Demonstrate data fabric API usage. Note, the API calls are all async.
     """
-    api = DataFabricAPI(credential=cred, subscription_key=SUBSCRIPTION_KEY)
-    await api.connect()
+    async with DataFabricAPI(credential=cred, subscription_key=SUBSCRIPTION_KEY) as api:
+        # Get recent ledger entries and print them.
+        ledger = await api.get_ledger(CONTAINER_ID)
+        print(ledger)
 
-    # Get recent ledger entries and print them.
-    ledger = await api.get_ledger(CONTAINER_ID)
-    print(ledger)
-
-    # The ledger return is a Pandas dataframe, so we can do stats on it.
-    print(ledger.groupby('entityId')['fileName'].count())
-
-    await api.disconnect()
+        # The ledger return is a Pandas dataframe, so we can do stats on it.
+        print(ledger.groupby('entityId')['fileName'].count())
 
 
 if __name__ == '__main__':
