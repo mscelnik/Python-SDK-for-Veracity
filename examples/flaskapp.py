@@ -17,7 +17,7 @@ Requirements:
 
 import os
 from flask import Flask, request, redirect, session, url_for
-from flask_session import Session
+# from flask_session import Session
 from veracity_platform.identity import IdentityService
 
 app = Flask(__name__)
@@ -35,7 +35,7 @@ CLIENT_ID = os.environ.get("EXAMPLE_VERACITY_CLIENT_ID")
 CLIENT_SECRET = os.environ.get("EXAMPLE_VERACITY_CLIENT_SECRET")
 SUBSCRIPTION_KEY = os.environ.get("EXAMPLE_VERACITY_SUBSCRIPTION_KEY")
 REDIRECT_URI = "http://localhost/login"
-SCOPES = ['veracity_service']
+SCOPES = ['veracity']
 
 id_service = IdentityService(CLIENT_ID, REDIRECT_URI, client_secret=CLIENT_SECRET)
 
@@ -71,13 +71,13 @@ def login():
 
     # No auth code or token acquisition failed.  Redirect to Veracity login.
     session['flow'] = id_service.initiate_auth_code_flow(SCOPES, redirect_uri=REDIRECT_URI)
-    return redirect(session['flow']['auth_uri'])
+    response = redirect(session['flow']['auth_uri'])
+    return response
 
 
 def validate_user(session):
     try:
         token = session.get('id_token')
-        print(token)
         jwt_content = id_service.validate_token(token)
         session['username'] = jwt_content.get('name')
     except Exception as err:
@@ -106,4 +106,4 @@ def get_user_profile(session):
 
 if __name__ == '__main__':
     # Ensure port is set exactly as REDIRECT_URI!  Default is 80 for HTTP if no port in REDIRECT_URI.
-    app.run(debug=True, port=80)
+    app.run(debug=True, host='localhost', port=80)

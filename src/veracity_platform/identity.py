@@ -35,17 +35,16 @@ DEFAULT_TENANT_ID = "dnvglb2cprod.onmicrosoft.com"
 DEFAULT_REPLY_URL = "http://localhost"
 DEFAULT_POLICY = "b2c_1a_signinwithadfsidp"
 
-# Veracity scopes require suffixes before use:
+# The service API scope is sufficient for all Veracity APIs, so don't need the others.  This contradicts the
+# [documentation](https://developer.veracity.com/docs/section/identity/authentication/web-native#authenticating-a-user)
+# but seems to work.  Veracity scopes require suffixes before use:
 #    "/.default" for web app, user not present scenario.  For example:
 #       https://dnvglb2cprod.onmicrosoft.com/83054ebf-1d7b-43f5-82ad-b2bde84d7b75/.default
 #    "/user_impersonation" for client application, user present scenario.  For example:
 #       'https://dnvglb2cprod.onmicrosoft.com/83054ebf-1d7b-43f5-82ad-b2bde84d7b75/user_impersonation
+VERACITY_SERVICE_SCOPE = 'https://dnvglb2cprod.onmicrosoft.com/dfba9693-546d-4300-bcd7-d8d525bdff38'
 ALLOWED_SCOPES = {
-    'veracity_service': 'https://dnvglb2cprod.onmicrosoft.com/83054ebf-1d7b-43f5-82ad-b2bde84d7b75',
-    'veracity_datafabric': 'https://dnvglb2cprod.onmicrosoft.com/37c59c8d-cd9d-4cd5-b05a-e67f1650ee14',
-    # data is alias for datafabric.
-    'veracity_data': 'https://dnvglb2cprod.onmicrosoft.com/37c59c8d-cd9d-4cd5-b05a-e67f1650ee14',
-    'veracity_iot': 'https://dnvglb2cprod.onmicrosoft.com/29a8760a-d13a-41ce-998e-0a00c3d948d5',
+    'veracity': VERACITY_SERVICE_SCOPE,
 }
 
 
@@ -94,14 +93,23 @@ class Authority(object):
         self.metadata = self.reload_metadata()
 
     @property
+    def require_policy_injection(self):
+        # TODO: Remove policy injection when no longer required.
+        return self.url.startswith(MICROSOFT_AUTHORITY_HOSTNAME)
+
+    @property
     def url(self):
         from datetime import date
         DEADLINE = date.fromisoformat('2021-07-01')
         if date.today() >= DEADLINE:
             # After 15 March use this as MS deprecating their login URL.
-            return f"https://login.veracity.com/{self.tenant}"
+            url = f"{VERACITY_AUTHORITY_HOSTNAME}/{self.tenant}"
+            if self.policy is not None:
+                url = f'{url}/{self.policy}'
         else:
-            return f"https://login.microsoftonline.com/{self.tenant}"
+            url = f"{MICROSOFT_AUTHORITY_HOSTNAME}/{self.tenant}"
+
+        return url
 
     @property
     def safe_policy(self):
@@ -112,28 +120,30 @@ class Authority(object):
     def metadata_url(self):
         if self.api_version in [1, 1.0, 'v1', 'v1.0']:
             return f"{self.url}/.well-known/openid-configuration/"
-        else:
+        elif self.api_version in [2, 2.0, 'v2', 'v2.0']:
             # Assume is like v2.0; will break otherwise.
-            return f"{self.url}/{self.api_version}/.well-known/openid-configuration/"
+            return f"{self.url}/v2.0/.well-known/openid-configuration/"
+        else:
+            raise IdentityError(f'Authority API version must be in [v1.0, v2.0], not {self.api_version}.')
 
     @property
-    def authorize_endpoint(self):
+    def authorization_endpoint(self):
         return self.metadata.get('authorization_endpoint')
 
     def token_endpoint(self):
         return self.metadata.get('token_endpoint')
 
     @property
-    def jwtk_endpoint(self):
+    def jwtks_uri(self):
         return self.metadata.get('jwks_uri')
 
     @property
-    def issuer_endpoint(self):
+    def issuer(self):
         return self.metadata.get('issuer')
 
-    @property
-    def jwtk_url(self):
-        return f"{self.jwtk_endpoint}?p={self.safe_policy}"
+    # @property
+    # def jwtk_url(self):
+    #     return f"{self.jwtk_endpoint}?p={self.safe_policy}"
 
     def reload_metadata(self):
         import requests
@@ -145,25 +155,25 @@ class Authority(object):
                 self.metadata['issuer'] = self.metadata['issuer'] + '/'
             return self.metadata
         else:
-            raise IdentityError(f"HTTP/{resp.status_code} Failed to get metadata.")
+            raise IdentityError(f"HTTP/{resp.status_code} Failed to get metadata from {self.metadata_url}.")
 
-    def authorize_url(self, **params):
-        params['p'] = self.policy
-        safe_params = self._make_param_string(**params)
-        return '?'.join([self.authorize_endpoint, safe_params])
+    # def authorize_url(self, **params):
+    #     params['p'] = self.policy
+    #     safe_params = self._make_param_string(**params)
+    #     return '?'.join([self.authorize_endpoint, safe_params])
 
-    def token_url(self, **params):
-        params['p'] = self.policy
-        safe_params = self._make_param_string(**params)
-        return '?'.join([self.token_endpoint, safe_params])
+    # def token_url(self, **params):
+    #     params['p'] = self.policy
+    #     safe_params = self._make_param_string(**params)
+    #     return '?'.join([self.token_endpoint, safe_params])
 
-    def client_token_url(self, **params):
-        safe_params = self._make_param_string(**params)
-        return '?'.join([self.token_endpoint, safe_params])
+    # def client_token_url(self, **params):
+    #     safe_params = self._make_param_string(**params)
+    #     return '?'.join([self.token_endpoint, safe_params])
 
-    def _make_param_string(self, **params):
-        from urllib.parse import urlencode, quote
-        return urlencode(params, quote_via=quote)
+    # def _make_param_string(self, **params):
+    #     from urllib.parse import urlencode, quote
+    #     return urlencode(params, quote_via=quote)
 
 
 class IdentityService(object):
@@ -181,9 +191,12 @@ class IdentityService(object):
         authority (Authority): If different from Veracity authority.  You should
             not change this - by default the service will connect to the
             Veracity authority automatically.
+        api_version (str): Not required if you provide `authority`.  Use v2.0
+            (default) for user-present scenarios and v1.0 for user-not-present
+            scenarios (i.e. when authenticating as the app/service principal.)
     """
-    def __init__(self, client_id, redirect_uri=None, client_secret=None, authority=None):
-        self.authority = authority or Authority()
+    def __init__(self, client_id, redirect_uri=None, client_secret=None, authority=None, api_version='v2.0'):
+        self.authority = authority or Authority(api_version=api_version)
         self.client_id = client_id
         self.client_secret = client_secret
         self.redirect_uri = redirect_uri
@@ -206,7 +219,8 @@ class IdentityService(object):
 
     def acquire_token_by_auth_code_flow(self, flow, auth_response, scopes=None, **kwargs):
         """ Validates and acquires token from auth code flow.
-        Drop-in replacement for msal.ClientApplication method.
+
+        Drop-in replacement for equivalent msal.ClientApplication method.
 
         Auth code flow is a "user present" scenario.
 
@@ -224,10 +238,12 @@ class IdentityService(object):
 
         user_present = kwargs.pop('user_present', True)
 
+        # TODO: Remove policy injection when no longer required.
         # Inject policy into query parameters.
         # This is the step where Veracity deviates from msal and azure.identity!
-        params = kwargs.setdefault('params', {})
-        params['p'] = self.authority.policy
+        if self.authority.require_policy_injection:
+            params = kwargs.setdefault('params', {})
+            params['p'] = self.authority.policy
 
         return self.openid_client.obtain_token_by_auth_code_flow(
             flow,
@@ -238,7 +254,7 @@ class IdentityService(object):
 
     def acquire_token_by_authorization_code(self, code, scopes, **kwargs):
         """ Acquires a token using the requests library.
-        Drop-in replacement for msal.ClientApplication method.
+        Drop-in replacement for equivalent msal.ClientApplication method.
 
         References:
             - https://docs.microsoft.com/en-us/azure/active-directory/develop/v2-oauth2-auth-code-flow
@@ -284,18 +300,25 @@ class IdentityService(object):
         """
         import msal
         import uuid
-        state = kwargs.pop('state', str(uuid.uuid4()))
         user_present = kwargs.pop('user_present', True)
         expanded_scopes = expand_veracity_scopes(scopes, user_present=user_present)
         decorated_scopes = msal.application.decorate_scope(expanded_scopes, self.client_id)
-        return self.openid_client.initiate_auth_code_flow(
-            scope=decorated_scopes,
-            redirect_uri=self.redirect_uri,
-            state=state,
-            # Inject policy into query parameters.
-            # This is the step where Veracity deviates from msal and azure.identity!
-            p=self.authority.policy,
-        )
+        flow_args = {
+            'state': kwargs.pop('state', str(uuid.uuid4())),
+            'scope': decorated_scopes,
+            'redirect_uri': self.redirect_uri,
+        }
+        # TODO: Remove policy injection as no longer required.
+        if self.authority.require_policy_injection:
+            flow_args['p'] = self.authority.policy
+        return self.openid_client.initiate_auth_code_flow(**flow_args)
+        #     scope=decorated_scopes,
+        #     redirect_uri=self.redirect_uri,
+        #     state=state,
+        #     # Inject policy into query parameters.
+        #     # This is the step where Veracity deviates from msal and azure.identity!
+        #     # p=self.authority.policy,
+        # )
 
     def remove_account(self, account):
         raise NotImplementedError()
@@ -310,20 +333,21 @@ class IdentityService(object):
         return self.openid_client.obtain_token_for_client(scope=expanded_scopes, **kwargs)
 
     def acquire_token_on_behalf_of(self, user_assertion, scopes, claims_challenge=None, **kwargs):
-        import msal
-        user_present = kwargs.pop('user_present', True)
-        expanded_scopes = expand_veracity_scopes(scopes, user_present=user_present)
-        decorated_scopes = msal.application.decorate_scope(expanded_scopes, self.client_id)
-        data = kwargs.pop("data", {})
-        data["requested_token_use"] = "on_behalf_of"
-        data["claims"] = claims_challenge
-        self.openid_client.obtain_token_by_refresh_token(
-            user_assertion,
-            self.openid_client.GRANT_TYPE_JWT,
-            scope=decorated_scopes,
-            data=data,
-            **kwargs,
-        )
+        raise IdentityError('Veracity IDP does not support "on behalf of" authentication.')
+        # import msal
+        # user_present = kwargs.pop('user_present', True)
+        # expanded_scopes = expand_veracity_scopes(scopes, user_present=user_present)
+        # decorated_scopes = msal.application.decorate_scope(expanded_scopes, self.client_id)
+        # data = kwargs.pop("data", {})
+        # data["requested_token_use"] = "on_behalf_of"
+        # data["claims"] = claims_challenge
+        # self.openid_client.obtain_token_by_refresh_token(
+        #     user_assertion,
+        #     self.openid_client.GRANT_TYPE_JWT,
+        #     scope=decorated_scopes,
+        #     data=data,
+        #     **kwargs,
+        # )
 
     # #########################################################################
     # Veracity-specific methods
@@ -347,7 +371,7 @@ class IdentityService(object):
             decoded_token = oidc.decode_id_token(
                 token,
                 client_id=self.client_id,
-                issuer=self.authority.issuer_endpoint,
+                issuer=self.authority.issuer,
                 # TODO: Check nonce/state when validating.
                 nonce=None,
             )
@@ -480,12 +504,10 @@ class ClientSecretCredential(Credential):
 
     def __init__(self, client_id, client_secret, resource=None, **kwargs):
         if resource is not None:
-            # If we want to access a resource we need to use the v1 endpoints.  This
-            # is quite a niche use case but is still in use in places.
-            auth = Authority(api_version='v1.0')
-            service = IdentityService(client_id, redirect_uri=None, client_secret=client_secret, authority=auth)
+            # If we want to access a resource we need to use the v1 endpoints.
+            service = IdentityService(client_id, redirect_uri=None, client_secret=client_secret, api_version='v1.0')
         else:
-            service = IdentityService(client_id, redirect_uri=None, client_secret=client_secret)
+            service = IdentityService(client_id, redirect_uri=None, client_secret=client_secret, api_version='v1.0')
         super().__init__(service)
         self.resource = resource
 
@@ -589,3 +611,15 @@ class AuthCodeRedirectServer(HTTPServer):
         """ Break the request-handling loop by tearing down the server.
         """
         self.server_close()
+
+
+def get_datafabric_token(client_id, client_secret):
+    """ Quickly get an access token for the Veracity Data Fabric.
+    """
+    RESOURCE = "https://dnvglb2cprod.onmicrosoft.com/dfba9693-546d-4300-bcd7-d8d525bdff38"
+    cred = ClientSecretCredential(
+        client_id=client_id,
+        client_secret=client_secret,
+        resource=RESOURCE,
+    )
+    return cred.get_token()
