@@ -1,6 +1,7 @@
 """ Veracity Services API
 """
 
+from typing import AnyStr, Tuple, List
 from .base import ApiBase
 # TODO: Define a custom API exception.
 from urllib.error import HTTPError
@@ -39,20 +40,61 @@ class UserAPI(ApiBase):
             raise HTTPError(endpoint, resp.status, data, resp.headers, None)
         return data
 
-    async def get_messages(self, all=False):
-        raise NotImplementedError()
+    async def get_messages(self, all=False, supportCode=None):
+        endpoint = f'{self.url}/messages'
+        resp = await self.session.get(endpoint)
+        data = await resp.json()
+        if resp.status != 200:
+            raise HTTPError(endpoint, resp.status, data, resp.headers, None)
+        return data
 
     async def get_message_count(self):
-        raise NotImplementedError()
+        endpoint = f'{self.url}/messages'
+        resp = await self.session.get(endpoint)
+        if resp.status != 200:
+            data = await resp.json()
+            raise HTTPError(endpoint, resp.status, data, resp.headers, None)
+        return int(await resp.text())
 
     async def get_message(self, messageId):
-        raise NotImplementedError()
+        endpoint = f'{self.url}/messages/{messageId}'
+        resp = await self.session.get(endpoint)
+        data = await resp.json()
+        if resp.status != 200:
+            raise HTTPError(endpoint, resp.status, data, resp.headers, None)
+        return data
 
-    async def validate_policies(self, returnUrl):
-        raise NotImplementedError()
+    async def validate_policies(self, returnUrl=None):
+        endpoint = f'{self.url}/policies/validate()'
+        resp = await self.session.get(endpoint)
+        if resp.status == 204:
+            return True, []
+        data = await resp.json()
+        if resp.status == 406:
+            return False, data['violatedPolicies']
+        else:
+            raise HTTPError(endpoint, resp.status, data, resp.headers, None)
 
-    async def validate_service_policy(self):
-        raise NotImplementedError()
+    async def validate_service_policy(self, serviceId: AnyStr, returnUrl=None, supportCode=None) -> Tuple[bool, List[AnyStr]]:
+        """ Validates the user policies for the specified service.
+
+        Args:
+            serviceId: GUID identity of a Veracity service.
+            returnUrl: (optional) The url to return the user to after policy issues have been resolved.
+            supportCode: (optional) Provide a correlation token for log lookup.
+
+        Returns:
+            Tuple of (Is valid: bool, List of violated policies: list[str]).
+        """
+        endpoint = f'{self.url}/policies/{serviceId}/validate()'
+        resp = await self.session.get(endpoint)
+        if resp.status == 204:
+            return True, []
+        data = await resp.json()
+        if resp.status == 406:
+            return False, data['violatedPolicies']
+        else:
+            raise HTTPError(endpoint, resp.status, data, resp.headers, None)
 
     async def get_profile(self):
         endpoint = f'{self.url}/profile'
@@ -63,10 +105,20 @@ class UserAPI(ApiBase):
         return data
 
     async def get_services(self):
-        raise NotImplementedError()
+        endpoint = f'{self.url}/services'
+        resp = await self.session.get(endpoint)
+        data = await resp.json()
+        if resp.status != 200:
+            raise HTTPError(endpoint, resp.status, data, resp.headers, None)
+        return data
 
     async def get_widgets(self):
-        raise NotImplementedError()
+        endpoint = f'{self.url}/widgets'
+        resp = await self.session.get(endpoint)
+        data = await resp.json()
+        if resp.status != 200:
+            raise HTTPError(endpoint, resp.status, data, resp.headers, None)
+        return data
 
 
 class ClientAPI(ApiBase):
