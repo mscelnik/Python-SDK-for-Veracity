@@ -84,7 +84,7 @@ class IdentityError(Exception):
 
 
 class Authority(object):
-    """ Represents the Veracity authority from which to get tokens.
+    """ Represents an authority from which to get tokens.
     """
     def __init__(self, tenant=DEFAULT_TENANT_ID, policy=DEFAULT_POLICY, api_version='v2.0'):
         self.tenant = tenant
@@ -93,23 +93,26 @@ class Authority(object):
         self.metadata = self.reload_metadata()
 
     @property
+    def hostname(self):
+        from datetime import date
+        DEADLINE = date.fromisoformat('2021-05-01')
+        if date.today() >= DEADLINE:
+            # After deadline use Veracity as MS is deprecating their login URL.
+            return VERACITY_AUTHORITY_HOSTNAME
+        else:
+            return MICROSOFT_AUTHORITY_HOSTNAME
+
+    @property
     def require_policy_injection(self):
         # TODO: Remove policy injection when no longer required.
         return self.url.startswith(MICROSOFT_AUTHORITY_HOSTNAME)
 
     @property
     def url(self):
-        from datetime import date
-        DEADLINE = date.fromisoformat('2021-07-01')
-        if date.today() >= DEADLINE:
-            # After 15 March use this as MS deprecating their login URL.
-            url = f"{VERACITY_AUTHORITY_HOSTNAME}/{self.tenant}"
-            if self.policy is not None:
-                url = f'{url}/{self.policy}'
-        else:
-            url = f"{MICROSOFT_AUTHORITY_HOSTNAME}/{self.tenant}"
-
-        return url
+        myurl = f"{self.hostname}/{self.tenant}"
+        if (self.hostname == VERACITY_AUTHORITY_HOSTNAME) and (self.policy is not None):
+            myurl = f'{myurl}/{self.policy}'
+        return myurl
 
     @property
     def safe_policy(self):
@@ -174,6 +177,22 @@ class Authority(object):
     # def _make_param_string(self, **params):
     #     from urllib.parse import urlencode, quote
     #     return urlencode(params, quote_via=quote)
+
+
+class VeracityAuthority(Authority):
+    pass
+
+
+class MicrosoftAuthority(Authority):
+    """ Microsoft authority at login.microsoft.com.
+    Used for confidential clients applications to authenticate against Veracity.
+    """
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    @property
+    def hostname(self):
+        return MICROSOFT_AUTHORITY_HOSTNAME
 
 
 class IdentityService(object):
@@ -454,6 +473,7 @@ class InteractiveBrowserCredential(Credential):
             raise IdentityError("Could not start an HTTP server for interactive credential.")
 
         flow = self.service.initiate_auth_code_flow(scopes, user_present=True)
+        print(flow)
         # Open system default browser to auth url.
         auth_url = flow['auth_uri']
         if not webbrowser.open(auth_url):
@@ -504,7 +524,13 @@ class ClientSecretCredential(Credential):
 
     def __init__(self, client_id, client_secret, resource=None, **kwargs):
         # If we want to use client/secret auth we need to use the v1 endpoints.
-        service = IdentityService(client_id, redirect_uri=None, client_secret=client_secret, api_version='v1.0')
+        service = IdentityService(
+            client_id,
+            redirect_uri=None,
+            client_secret=client_secret,
+            authority=MicrosoftAuthority(),
+            api_version='v1.0',
+        )
         # if resource is not None:
         # else:
         #     service = IdentityService(client_id, redirect_uri=None, client_secret=client_secret, api_version='v1.0')

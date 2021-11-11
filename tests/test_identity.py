@@ -12,6 +12,13 @@ class TestClientSecretCredential(object):
     def credential(self, CLIENT_ID, CLIENT_SECRET):
         yield identity.ClientSecretCredential(CLIENT_ID, CLIENT_SECRET)
 
+    def test_get_token(self, credential):
+        token = credential.get_token(['veracity'])
+        assert token is not None
+        assert 'error' not in token
+        assert 'token_type' in token
+        assert 'access_token' in token
+
     def test_get_token_service(self, credential):
         token = credential.get_token(['veracity_service'])
         assert token is not None
