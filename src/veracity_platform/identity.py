@@ -42,9 +42,15 @@ DEFAULT_POLICY = "b2c_1a_signinwithadfsidp"
 #       https://dnvglb2cprod.onmicrosoft.com/83054ebf-1d7b-43f5-82ad-b2bde84d7b75/.default
 #    "/user_impersonation" for client application, user present scenario.  For example:
 #       'https://dnvglb2cprod.onmicrosoft.com/83054ebf-1d7b-43f5-82ad-b2bde84d7b75/user_impersonation
-VERACITY_SERVICE_SCOPE = 'https://dnvglb2cprod.onmicrosoft.com/dfba9693-546d-4300-bcd7-d8d525bdff38'
+
+# See https://developer.veracity.com/docs/section/onboarding/clientv1 for scope/resource URIs.
+VERACITY_SERVICE_SCOPE = 'https://dnvglb2cprod.onmicrosoft.com/dfc0f96d-1c85-4334-a600-703a89a32a4c'
+DATAFABRIC_SCOPE = 'https://dnvglb2cprod.onmicrosoft.com/dfba9693-546d-4300-bcd7-d8d525bdff38'
+
 ALLOWED_SCOPES = {
     'veracity': VERACITY_SERVICE_SCOPE,
+    'veracity_service': VERACITY_SERVICE_SCOPE,
+    'veracity_datafabric': DATAFABRIC_SCOPE,
 }
 
 
@@ -73,8 +79,7 @@ def expand_veracity_scopes(scopes: Sequence[str], user_present: bool = False) ->
         suffix = '/.default'
 
     return [
-        ALLOWED_SCOPES[s] + suffix
-        if s in ALLOWED_SCOPES else s
+        ALLOWED_SCOPES[s] + suffix if s in ALLOWED_SCOPES else s
         for s in scopes
     ]
 
@@ -524,24 +529,21 @@ class ClientSecretCredential(Credential):
 
     def __init__(self, client_id, client_secret, resource=None, **kwargs):
         # If we want to use client/secret auth we need to use the v1 endpoints.
-        service = IdentityService(
-            client_id,
-            redirect_uri=None,
-            client_secret=client_secret,
-            authority=MicrosoftAuthority(),
-            api_version='v1.0',
+        import msal
+        app = msal.ConfidentialClientApplication(
+            client_id=client_id,
+            client_credential=client_secret,
+            authority=f"{MICROSOFT_AUTHORITY_HOSTNAME}/{DEFAULT_TENANT_ID}",
         )
-        # if resource is not None:
-        # else:
-        #     service = IdentityService(client_id, redirect_uri=None, client_secret=client_secret, api_version='v1.0')
-        super().__init__(service)
+        super().__init__(app)
         self.resource = resource
 
     def get_token(self, scopes, **kwargs):
         if self.resource is not None:
             # Inject the resource into the token request body.
             kwargs['data'] = {'resource': self.resource}
-        return self.service.acquire_token_for_client(scopes, **kwargs)
+        clean_scopes = expand_veracity_scopes(scopes, user_present=False)
+        return self.service.acquire_token_for_client(clean_scopes, **kwargs)
 
 
 class EnvironmentCredential(Credential):
