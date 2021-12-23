@@ -13,16 +13,21 @@ and secret.
 
 import asyncio
 import os
+import azure.identity
+from azure.keyvault import secrets
 from veracity_platform.identity import ClientSecretCredential
 from veracity_platform.data import DataFabricAPI
 
+KEYVAULT = os.environ.get('TEST_KEYVAULT_URL')
 
-CLIENT_ID = os.environ.get("EXAMPLE_VERACITY_SP")
-CLIENT_SECRET = os.environ.get("EXAMPLE_VERACITY_SP_SECRET")
-SUBSCRIPTION_KEY = os.environ.get("EXAMPLE_VERACITY_SP_SUBSCRIPTION")
-CONTAINER_ID = os.environ.get("EXAMPLE_DATAFABRIC_CONTAINER")
-RESOURCE_URL = os.environ.get("DATAFABRIC_RESOURCE_URL")
+cred = azure.identity.DefaultAzureCredential()
+client = secrets.SecretClient(KEYVAULT, credential=cred)
 
+CLIENT_ID = client.get_secret('TestApp-DF-ID').value
+CLIENT_SECRET = client.get_secret('TestApp-DF-Secret').value
+SUBSCRIPTION_KEY = client.get_secret('TestApp-DF-Sub').value
+CONTAINER_ID = client.get_secret('Test-Container-ID').value
+RESOURCE_URL = "https://dnvglb2cprod.onmicrosoft.com/dfba9693-546d-4300-bcd7-d8d525bdff38"
 
 # Get a client/secret credential as this is a backend service accessing the data
 # fabric.
