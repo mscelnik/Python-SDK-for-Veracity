@@ -20,7 +20,7 @@ class TestClientCredential(object):
 
     @pytest.fixture(scope='class')
     def token(self, app):
-        yield app.acquire_token_for_client([f'{identity.VERACITY_SERVICE_SCOPE}/.default'])
+        yield app.acquire_token_for_client([f'{identity.SERVICE_RESOURCE}/.default'])
 
     def test_acquire_token(self, token):
         print(token)
@@ -31,7 +31,7 @@ class TestClientCredential(object):
         assert 'access_token' in token
 
     def test_use_token(self, token, SUBSCRIPTION_KEY):
-        url = 'https://api.veracity.com/veracity/services/v3/services'
+        url = 'https://api.veracity.com/veracity/services/v3/this/services'
         params = {'page': 0, 'pageSize': 1}
         headers = {
             'Authorization': f'Bearer {token["access_token"]}',

@@ -79,3 +79,39 @@ def requires_datafabric(request, RESOURCE_URL, CONTAINER_ID):
     missing_vars = (RESOURCE_URL is None) or (CONTAINER_ID is None)
     if missing_vars:
         pytest.skip('Test environment variable(s) for data fabric not set.')
+
+
+# ------------------------------------------------------------------------------
+# Pytest configuration
+# ------------------------------------------------------------------------------
+
+def pytest_addoption(parser):
+    parser.addoption(
+        "--interactive", action="store_true", default=False, help="Run tests requiring user interaction"
+    )
+
+
+def modify_interactive(config, items):
+    option = 'interactive'
+
+    if config.getoption(f"--{option}"):
+        return [i for i in items if f'{option}' in i.keywords]
+
+    skipped = pytest.mark.skip(reason=f"need --{option} option to run")
+    for item in items:
+        if option in item.keywords:
+            item.add_marker(skipped)
+
+    return []
+
+
+def pytest_collection_modifyitems(config, items):
+    interative_items = modify_interactive(config, items)
+
+    # Break out if the user has selection a subset of tests, either regression
+    # or integration.
+    all_items = interative_items
+    if len(all_items) > 0:
+        # This replaces the full test set with the subset in place.
+        items[:] = all_items
+        return
