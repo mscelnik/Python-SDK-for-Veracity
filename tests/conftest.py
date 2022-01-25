@@ -10,10 +10,12 @@ import pytest
 
 
 @pytest.fixture(scope='session', autouse=True)
-def configure_pandas():
+def test_setup():
+    from veracity_platform import utils
     import pandas as pd
     pd.options.display.max_columns = 10
     pd.options.display.max_rows = 100
+    utils.fix_aiohttp()
 
 
 @pytest.fixture(scope='session')

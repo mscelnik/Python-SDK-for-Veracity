@@ -33,6 +33,7 @@ class TestDataFabricAPI(object):
         finally:
             await api.disconnect()
 
+    @pytest.mark.skip('Ledger has been discontinued')
     @pytest.mark.asyncio
     async def test_ledger(self, api, CONTAINER_ID):
         """ Get ledger from a demo container.

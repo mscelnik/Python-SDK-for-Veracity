@@ -3,16 +3,16 @@
 
 import pytest
 from veracity_platform import service
+from veracity_platform import identity
 
 
-@pytest.fixture(scope='module')
-def credential(CLIENT_ID, CLIENT_SECRET, RESOURCE_URL):
-    from veracity_platform import identity
-    yield identity.ClientSecretCredential(CLIENT_ID, CLIENT_SECRET, resource=RESOURCE_URL)
-
-
+@pytest.mark.interactive
 @pytest.mark.requires_secrets
 class TestUserAPI(object):
+
+    @pytest.fixture(scope='class')
+    def credential(self, CLIENT_ID, CLIENT_SECRET):
+        yield identity.InteractiveBrowserCredential(CLIENT_ID, client_secret=CLIENT_SECRET)
 
     @pytest.fixture()
     async def api(self, credential, SUBSCRIPTION_KEY):
