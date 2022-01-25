@@ -2,7 +2,7 @@
 """
 
 
-from typing import Any, AnyStr, Mapping, Sequence
+from typing import Any, AnyStr, Mapping, Sequence, Dict
 from urllib.error import HTTPError
 import pandas as pd
 from azure.storage.blob.aio import ContainerClient
@@ -32,7 +32,7 @@ class DataFabricAPI(ApiBase):
     API_ROOT = "https://api.veracity.com/veracity/datafabric"
 
     def __init__(self, credential, subscription_key, version=None, **kwargs):
-        super().__init__(credential, subscription_key, scope=kwargs.pop('scope', 'veracity'), **kwargs)
+        super().__init__(credential, subscription_key, scope=kwargs.pop('scope', 'veracity_datafabric'), **kwargs)
         self._url = f"{DataFabricAPI.API_ROOT}/data/api/1"
         self.sas_cache = {}
         self.access_cache = {}
@@ -147,8 +147,52 @@ class DataFabricAPI(ApiBase):
         self.access_cache[resourceId] = df
         return df
 
-    async def share_access(self, resourceId: AnyStr, autoRefresh: bool, *args, **kwargs):
-        raise NotImplementedError()
+    async def share_access(self, containerId: AnyStr,
+                           userId: AnyStr, accessKeyTemplateId: AnyStr,
+                           autoRefreshed: bool = False,
+                           comment: AnyStr = None,
+                           startIp: AnyStr = None, endIp: AnyStr = None,
+                           *args, **kwargs):
+        """ Shares container access with a user/application.
+
+        Args:
+            containerId: Container ID to which to share access.
+            autoRefreshed: Auto-renew keys when they expire?
+            userId: ID of the user/application with which to share access.
+            accessKeyTemplateId: Access level template (e.g read, write etc.)
+                Get valid key templates using :meth:`get_keytemplates` method
+
+        Returns:
+            The accessSharingId (str) if successful.
+
+        Exceptions:
+            Raises DataFabric error for known errors.
+            Raises HTTPError for unknown errors.
+        """
+        url = f'{self._url}/resources/{containerId}/accesses'
+        print(url)
+
+        # Build data payload.
+        payload = {
+            "userId": userId,
+            "accessKeyTemplateId": accessKeyTemplateId,
+        }
+        if comment:
+            payload['comment'] = comment
+        if startIp and endIp:
+            payload['ipRange'] = {'startIp': startIp, 'endIp': endIp}
+
+        resp = await self.session.post(url, json=payload, params={'autoRefreshed': str(autoRefreshed).lower()})
+        data = await resp.json()
+
+        if resp.status == 200:
+            return data['accessSharingId']
+        elif resp.status == 400:
+            raise DataFabricError(f'HTTP/400 Malformed payload to share container access. Details:\n{data}')
+        elif resp.status == 404:
+            raise DataFabricError(f'HTTP/404 Data Fabric container {containerId} does not exist. Details:\n{data}')
+        else:
+            raise HTTPError(url, resp.status, data, resp.headers, None)
 
     async def revoke_access(self, resourceId: AnyStr, accessId: AnyStr):
         raise NotImplementedError()

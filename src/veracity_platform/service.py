@@ -35,7 +35,7 @@ class UserAPI(ApiBase):
     async def get_companies(self):
         endpoint = f'{self.url}/companies'
         resp = await self.session.get(endpoint)
-        data = await resp.json()
+        data = await resp.json(content_type=None)
         if resp.status != 200:
             raise HTTPError(endpoint, resp.status, data, resp.headers, None)
         return data
