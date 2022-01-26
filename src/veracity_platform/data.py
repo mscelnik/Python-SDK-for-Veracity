@@ -44,6 +44,8 @@ class DataFabricAPI(ApiBase):
     # APPLICATIONS.
 
     async def get_current_application(self):
+        # description: GET Returns information about the current application
+        # api-portal documentation: https://api-portal.veracity.com/docs/services/data-api/operations/v1-0Application_Me?
         url = f'{self._url}/application'
         resp = await self.session.get(url)
         data = await resp.json()
@@ -52,6 +54,8 @@ class DataFabricAPI(ApiBase):
         return data
 
     async def get_application(self, applicationId):
+        # description: GET Gets information about an application in Veracity data fabric.
+        # api-portal documentation: https://api-portal.veracity.com/docs/services/data-api/operations/v1-0Application_Get?
         url = f'{self._url}/application/{applicationId}'
         resp = await self.session.get(url)
         data = await resp.json()
@@ -60,6 +64,8 @@ class DataFabricAPI(ApiBase):
         return data
 
     async def add_application(self, *args, **kwargs):
+        # description: POST Add a new application to Veracity data fabric.
+        # api-portal documentation: https://api-portal.veracity.com/docs/services/data-api/operations/v1-0Application_Create?
         raise NotImplementedError()
 
     async def update_application_role(self, applicationId, role):
@@ -90,6 +96,8 @@ class DataFabricAPI(ApiBase):
     # KEY TEMPLATES.
 
     async def get_keytemplates(self):
+        # description: GET Returns the templates for the different types of keys you can generate.
+        # api-portal documentation: https://api-portal.veracity.com/docs/services/data-api/operations/v1-0KeyTemplates_GetStorageKeyTemplates?
         url = f'{self._url}/keytemplates'
         resp = await self.session.get(url)
         data = await resp.json()
