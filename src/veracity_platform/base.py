@@ -1,11 +1,15 @@
 """ Base components for the Veracity SDK.
 """
 
+from typing import AnyStr, Dict, List
+from aiohttp import ClientSession
+from . import identity
+
 
 class ApiBase(object):
     """ Base for API access classes. Provides connection/disconnection.
 
-    All web calls are async using aiohttp.
+    All web calls are async using an aiohttp.ClientSession object.
 
     Arguments:
         credential (veracity.Credential): Provides oauth access tokens for the
@@ -17,7 +21,7 @@ class ApiBase(object):
             `identity.ALLOWED_SCOPES` for options.
     """
 
-    def __init__(self, credential, subscription_key, scope):
+    def __init__(self, credential: identity.Credential, subscription_key: AnyStr, scope: List[AnyStr]):
         self.credential = credential
         self.subscription_key = subscription_key
         # By default we ask for access permission the service and data fabric APIs.
@@ -36,20 +40,20 @@ class ApiBase(object):
         await self.disconnect()
 
     @property
-    def connected(self):
+    def connected(self) -> bool:
         return self._session is not None
 
     @property
-    def session(self):
+    def session(self) -> ClientSession:
         if self._session is None:
             raise RuntimeError("Must connect API before use.")
         return self._session
 
     @property
-    def default_headers(self):
+    def default_headers(self) -> Dict[AnyStr, AnyStr]:
         return self._headers
 
-    async def connect(self, reset=False, credential=None, key=None):
+    async def connect(self, reset: bool = False, credential: identity.Credential = None, key: AnyStr = None) -> ClientSession:
         """ Create a single HTTP session to call the API.
         Optionally reset the existing session or change the credentials.
 
@@ -63,8 +67,6 @@ class ApiBase(object):
         """
         # Use this session for all HTTP requests.  We also add authentication
         # headers to all requests; which we attempt to set now.
-        import aiohttp
-
         reset_headers = reset or (self._session is None)
 
         if credential is not None:
@@ -91,7 +93,7 @@ class ApiBase(object):
             await self.disconnect()
 
         if self._session is None:
-            self._session = aiohttp.ClientSession(headers=self._headers)
+            self._session = ClientSession(headers=self._headers)
 
         return self._session
 
