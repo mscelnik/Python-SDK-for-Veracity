@@ -24,8 +24,8 @@ References:
 """
 
 from http.server import HTTPServer, BaseHTTPRequestHandler
-from typing import Sequence
-# from msal.oauth2cli import oidc
+from typing import AnyStr, Dict, Sequence
+import msal
 
 
 MICROSOFT_AUTHORITY_HOSTNAME = "https://login.microsoftonline.com"
@@ -64,7 +64,7 @@ CONF_SCOPES = {
 }
 
 
-def expand_veracity_scopes(scopes: Sequence[str], interactive: bool = False) -> Sequence[str]:
+def expand_veracity_scopes(scopes: Sequence[AnyStr], interactive: bool = False) -> Sequence[AnyStr]:
     """ Replaces Veracity short-hand scopes for actual scopes, scenario dependent.
 
     See :const:`USER_SCOPES` and :const:`CONF_SCOPES` for list of short-hand scopes.
@@ -106,7 +106,7 @@ class Credential(object):
     def __init__(self, service):
         self.service = service
 
-    def get_token(self, scopes, **kwargs):
+    def get_token(self, scopes: Sequence[AnyStr], **kwargs) -> Dict[AnyStr, AnyStr]:
         raise NotImplementedError('Do not use base class directly.')
 
 
@@ -129,18 +129,16 @@ class InteractiveBrowserCredential(Credential):
         client_secret (str): Optional client secret.
     """
 
-    def __init__(self, client_id, redirect_uri='http://localhost', client_secret=None):
-        import msal
+    def __init__(self, client_id: AnyStr, redirect_uri: AnyStr = 'http://localhost', client_secret: AnyStr = None):
         app = msal.ConfidentialClientApplication(
             client_id=client_id,
             client_credential=client_secret,
             authority=f"{VERACITY_AUTHORITY_HOSTNAME}/{DEFAULT_TENANT_ID}/{DEFAULT_POLICY}",
         )
-        # service = IdentityService(client_id, redirect_uri, client_secret=client_secret)
         super().__init__(app)
         self.redirect_uri = redirect_uri
 
-    def get_token(self, scopes, timeout=30):
+    def get_token(self, scopes: Sequence[AnyStr], timeout: int = 30) -> Dict[AnyStr, AnyStr]:
         """ Get a user token interactively using the webbrowser.
 
         Internally this uses auth-code-flow to retrieve the token.  It creates a
@@ -214,9 +212,8 @@ class ClientSecretCredential(Credential):
             environment variables or Azure KeyVault instead.
     """
 
-    def __init__(self, client_id, client_secret, resource=None, **kwargs):
+    def __init__(self, client_id: AnyStr, client_secret: AnyStr, resource: AnyStr = None, **kwargs):
         # If we want to use client/secret auth we need to use the v1 endpoints.
-        import msal
         app = msal.ConfidentialClientApplication(
             client_id=client_id,
             client_credential=client_secret,
@@ -225,7 +222,7 @@ class ClientSecretCredential(Credential):
         super().__init__(app)
         self.resource = resource
 
-    def get_token(self, scopes, **kwargs):
+    def get_token(self, scopes: Sequence[AnyStr], **kwargs) -> Dict[AnyStr, AnyStr]:
         if self.resource is not None:
             # Inject the resource into the token request body.
             kwargs['data'] = {'resource': self.resource}
@@ -300,7 +297,7 @@ class AuthCodeRedirectServer(HTTPServer):
 
     query_params = {}
 
-    def __init__(self, uri, timeout):
+    def __init__(self, uri: AnyStr, timeout: int):
         from urllib.parse import urlparse
         urlbits = urlparse(uri)
         hostname = urlbits.hostname
@@ -328,7 +325,7 @@ class AuthCodeRedirectServer(HTTPServer):
         self.server_close()
 
 
-def get_datafabric_token(client_id, client_secret):
+def get_datafabric_token(client_id: AnyStr, client_secret: AnyStr) -> Dict[AnyStr, AnyStr]:
     """ Quickly get an access token for the Veracity Data Fabric.
     """
     RESOURCE = "https://dnvglb2cprod.onmicrosoft.com/dfba9693-546d-4300-bcd7-d8d525bdff38"
