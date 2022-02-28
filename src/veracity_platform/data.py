@@ -118,7 +118,7 @@ class DataFabricAPI(ApiBase):
 
     # GROUPS.
 
-    async def get_groups(self) -> Dict[str]:
+    async def get_groups(self) -> Dict[str, Any]:
         """ Get user's container groups.
 
         The Data Fabric uses groups to organize containers in the web portal.  This
@@ -135,7 +135,7 @@ class DataFabricAPI(ApiBase):
             raise HTTPError(url, resp.status, data, resp.headers, None)
         return data
 
-    async def add_group(self, title: str, description: str, containerIds: Sequence[str], sortingOrder: float) -> Dict[str]:
+    async def add_group(self, title: str, description: str, containerIds: Sequence[str], sortingOrder: float) -> Dict[str, Any]:
         """ Creates a new container group for the user.
 
         Reference:
@@ -220,7 +220,7 @@ class DataFabricAPI(ApiBase):
         write.
 
         Returns:
-            Upon success, a list of key templates (each a dictionary).
+            Pandas dataframe with the key templates
 
         Exceptions:
             Raises HTTPError if not a 200 response.
@@ -237,7 +237,7 @@ class DataFabricAPI(ApiBase):
 
     # RESOURCES.
 
-    async def get_resources(self) -> List[Dict[str]]:
+    async def get_resources(self) -> List[Dict[str, Any]]:
         """ Gets metadata for all containers for which you can claim keys.
 
         Returns:
@@ -393,7 +393,7 @@ class DataFabricAPI(ApiBase):
         key = self.get_sas_cached(resourceId) or await self.get_sas_new(resourceId, accessId, **kwargs)
         return key
 
-    async def get_sas_new(self, resourceId: AnyStr, accessId: AnyStr = None) -> Dict[str]:
+    async def get_sas_new(self, resourceId: AnyStr, accessId: AnyStr = None) -> Dict[str, Any]:
         """ Gets a new SAS key to access a container.
 
         You can request a key with a specific access level (if you have the

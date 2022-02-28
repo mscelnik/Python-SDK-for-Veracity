@@ -7,37 +7,44 @@ Prerequisites:
     - Set up an Azure key vault or environment variables (see README).
 """
 
+from contextlib import contextmanager
+from unittest import mock
+import aiohttp
+import pandas as pd
+import pandas.testing as pdt
 import pytest
-from veracity_platform import data
+from veracity_platform import data, identity
+
+
+@contextmanager
+def patch_response(session, method, status=200, text=b'', json=None):
+    mockresponse = mock.AsyncMock(spec=aiohttp.ClientResponse)
+    mockresponse.json.return_value = json
+    mockresponse.text.return_value = text
+    mockresponse.status = status
+    with mock.patch.object(session, method, new=mock.AsyncMock(return_value=mockresponse)) as mockhttp:
+        yield mockhttp
 
 
 @pytest.fixture(scope='module')
 def credential(CLIENT_ID, CLIENT_SECRET, RESOURCE_URL):
-    from veracity_platform import identity
-    yield identity.ClientSecretCredential(CLIENT_ID, CLIENT_SECRET, resource=RESOURCE_URL)
+    mockcred = mock.MagicMock(spec=identity.Credential)
+    mockcred.get_token.return_value = {'access_token': ''}
+    yield mockcred
 
 
 @pytest.mark.requires_secrets
 @pytest.mark.requires_datafabric
 class TestDataFabricAPI(object):
 
-    @pytest.fixture()
-    async def api(self, credential, SUBSCRIPTION_KEY):
-        try:
-            api = data.DataFabricAPI(credential, SUBSCRIPTION_KEY)
+    @pytest.fixture(scope='function')
+    async def api(self, credential):
+        # Mock out the aiohttp session for unit testing.  This prevents any real
+        # web calls.
+        with mock.patch('veracity_platform.base.ClientSession', autospec=True):
+            api = data.DataFabricAPI(credential, 'key')
             await api.connect()
             yield api
-        finally:
-            await api.disconnect()
-
-    @pytest.mark.asyncio
-    async def test_connect(self, credential, SUBSCRIPTION_KEY):
-        api = data.DataFabricAPI(credential, SUBSCRIPTION_KEY)
-        assert api is not None
-        try:
-            await api.connect()
-        finally:
-            await api.disconnect()
 
     # APPLICATIONS.
 
@@ -50,19 +57,33 @@ class TestDataFabricAPI(object):
             - get_current_application
             - get_application
         """
-        data = await api.get_current_application()
-        assert data is not None
-        assert 'error' not in data
-        assert 'id' in data
+        with patch_response(api.session, 'get', 200, json={'id': 0}) as mockget:
+            data = await api.get_current_application()
+            mockget.assert_called_with("https://api.veracity.com/veracity/datafabric/data/api/1/application")
+            assert data == {'id': 0}
 
-        data = await api.get_application(data['id'])
-        assert data is not None
+            data = await api.get_application('0')
+            mockget.assert_called_with("https://api.veracity.com/veracity/datafabric/data/api/1/application/0")
+            assert data == {'id': 0}
 
     @pytest.mark.asyncio
-    async def test_add_application(self, api):
+    async def test_add_application_200(self, api):
         """ Get application has no exceptions.
         """
-        await api.add_application()
+        with patch_response(api.session, 'post', 200, json={'id': 0}) as mockpost:
+            await api.add_application("1", "2", "role")
+            mockpost.assert_called_with(
+                "https://api.veracity.com/veracity/datafabric/data/api/1/application",
+                {'id': '1', 'companyId': '2', 'role': 'role'},
+            )
+
+    @pytest.mark.asyncio
+    async def test_add_application_409(self, api):
+        """ Get application raises exception upon HTTP/409.
+        """
+        with patch_response(api.session, 'post', 409):
+            with pytest.raises(data.DataFabricError):
+                await api.add_application("1", "2", "role")
 
     @pytest.mark.asyncio
     async def test_update_application_role(self, api):
@@ -106,10 +127,38 @@ class TestDataFabricAPI(object):
 
     @pytest.mark.asyncio
     async def test_get_keytemplates(self, api):
-        """ Get keytemplates has no exceptions.
+        """ Get key templates has no exceptions.
         """
-        data = await api.get_keytemplates()
-        assert data is not None
+        keys = [{
+            "id": "00000000-0000-0000-0000-000000000000",
+            "name": "mykey",
+            "totalHours": 0,
+            "isSystemKey": True,
+            "description": "My key template",
+            "attribute1": True,
+            "attribute2": True,
+            "attribute3": False,
+            "attribute4": False,
+        }]
+
+        keysdf = pd.DataFrame(
+            columns=[
+                "id", "name", "totalHours", "isSystemKey", "description",
+                "attribute1", "attribute2", "attribute3", "attribute4"],
+            data=[[
+                "00000000-0000-0000-0000-000000000000", "mykey", 0, True,
+                "My key template", True, True, False, False,
+            ]],
+        )
+
+        with patch_response(api.session, 'get', 200, json=keys) as mockget:
+            data = await api.get_keytemplates()
+            mockget.assert_called_with("https://api.veracity.com/veracity/datafabric/data/api/1/keytemplates")
+            assert data == keys
+
+            data = await api.get_keytemplates_df()
+            mockget.assert_called_with("https://api.veracity.com/veracity/datafabric/data/api/1/keytemplates")
+            pdt.assert_frame_equal(keysdf, data)
 
     # LEDGER - NO LONGER AVAILABLE.
 
