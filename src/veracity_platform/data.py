@@ -4,7 +4,6 @@
 
 from typing import Any, AnyStr, List, Mapping, Sequence, Dict
 from urllib.error import HTTPError
-from numpy import identity
 import pandas as pd
 from azure.storage.blob.aio import ContainerClient
 from .base import ApiBase
@@ -69,15 +68,35 @@ class DataFabricAPI(ApiBase):
             raise HTTPError(url, resp.status, data, resp.headers, None)
         return data
 
-    async def get_application(self, applicationId):
-        # description: GET Gets information about an application in Veracity data fabric.
-        # api-portal documentation: https://api-portal.veracity.com/docs/services/data-api/operations/v1-0Application_Get?
+    async def get_application(self, applicationId: str) -> Dict[str, str]:
+        """ Gets information about an application in Veracity data fabric.
+
+        Reference:
+            https://api-portal.veracity.com/docs/services/data-api/operations/v1-0Application_Get
+
+        Args:
+            applicationId: The application ID.
+
+        Returns:
+            Dictionary with application info like:
+
+            .. code-block:: json
+
+               {
+                 "id": "00000000-0000-0000-0000-000000000000",
+                 "companyId": "00000000-0000-0000-0000-000000000000",
+                 "role": "string"
+               }
+        """
         url = f"{self._url}/application/{applicationId}"
         resp = await self.session.get(url)
         data = await resp.json()
-        if resp.status != 200:
+        if resp.status == 200:
+            return data
+        elif resp.status == 404:
+            raise DataFabricError(f"Application {applicationId} does not existing in the Data Fabric.")
+        else:
             raise HTTPError(url, resp.status, data, resp.headers, None)
-        return data
 
     async def add_application(self, applicationId: str, companyId: str, role: str):
         """ Adds a new application to the Data Fabric.
@@ -179,8 +198,39 @@ class DataFabricAPI(ApiBase):
             raise HTTPError(url, resp.status, data, resp.headers, None)
         return data
 
-    async def get_group(self, groupId):
-        raise NotImplementedError()
+    async def get_group(self, groupId: str) -> Dict[str, Any]:
+        """ Gets information about a single group.
+
+        Reference:
+            https://api-portal.veracity.com/docs/services/data-api/operations/v1-0Groups_GetById
+
+        Args:
+            groupId: The group ID (must exist for the current user).
+
+        Returns:
+            Group information as a dictionary like:
+
+            .. code-block:: json
+
+               {
+                   "id": "00000000-0000-0000-0000-000000000000",
+                   "title": "string",
+                   "description": "string",
+                   "resourceIds": [
+                       "00000000-0000-0000-0000-000000000000"
+                   ],
+                   "sortingOrder": 0.0
+               }
+        """
+        url = f"{self._url}/groups/{groupId}"
+        resp = await self.session.get(url)
+        data = await resp.json()
+        if resp.status == 200:
+            return data
+        elif resp.status == 404:
+            raise DataFabricError(f"Group {groupId} does not exist for current user.")
+        else:
+            raise HTTPError(url, resp.status, data, resp.headers, None)
 
     async def update_group(self, groupId, *args, **kwargs):
         raise NotImplementedError()
@@ -327,9 +377,57 @@ class DataFabricAPI(ApiBase):
         best_index = my_accesses["level"].astype(float).idxmax()
         return my_accesses.loc[best_index]
 
-    async def get_accesses(self, resourceId: AnyStr, pageNo: int = 1, pageSize: int = 50) -> Mapping[AnyStr, Any]:
-        url = f"{self._url}/resources/{resourceId}/accesses?pageNo={pageNo}&pageSize={pageSize}"
-        resp = await self.session.get(url)
+    async def get_accesses(self, containerId: AnyStr, pageNo: int = 1, pageSize: int = 50) -> Mapping[AnyStr, Any]:
+        """ Gets list of all available access specifications to a container.
+
+        Reference:
+            https://api-portal.veracity.com/docs/services/data-api/operations/v1-0Access_Get
+
+        Args:
+            containerId: The ID of the container.
+            pageNo: For multi-page access lists, get this page number (starting at 1).
+            pageSize: Number of accesses per page.
+
+        Returns:
+            A dictionary containing a list of access specification results like:
+
+            .. code-block:: json
+
+                {
+                    "results": [
+                        {
+                        "userId": "00000000-0000-0000-0000-000000000000",
+                        "ownerId": "00000000-0000-0000-0000-000000000000",
+                        "grantedById": "00000000-0000-0000-0000-000000000000",
+                        "accessSharingId": "00000000-0000-0000-0000-000000000000",
+                        "keyCreated": true,
+                        "autoRefreshed": true,
+                        "keyCreatedTimeUTC": "string",
+                        "keyExpiryTimeUTC": "string",
+                        "resourceType": "string",
+                        "accessHours": 0,
+                        "accessKeyTemplateId": "00000000-0000-0000-0000-000000000000",
+                        "attribute1": true,
+                        "attribute2": true,
+                        "attribute3": true,
+                        "attribute4": true,
+                        "resourceId": "00000000-0000-0000-0000-000000000000",
+                        "ipRange": {
+                            "startIp": "string",
+                            "endIp": "string"
+                        },
+                        "comment": "string"
+                        }
+                    ],
+                    "page": 0,
+                    "resultsPerPage": 0,
+                    "totalPages": 0,
+                    "totalResults": 0
+                }
+        """
+        url = f"{self._url}/resources/{containerId}/accesses"
+        params = {"pageNo": pageNo, "pageSize": pageSize}
+        resp = await self.session.get(url, params=params)
         if resp.status != 200:
             raise HTTPError(url, resp.status, await resp.text(), resp.headers, None)
         data = await resp.json()
@@ -502,8 +600,38 @@ class DataFabricAPI(ApiBase):
 
     # DATA STEWARDS.
 
-    async def get_data_stewards(self, resourceId: AnyStr) -> Sequence:
-        raise NotImplementedError()
+    async def get_data_stewards(self, containerId: AnyStr) -> List[Dict[str, str]]:
+        """ Gets a list of data stewards on a container.
+
+        Reference:
+            https://api-portal.veracity.com/docs/services/data-api/operations/v1-0DataStewards_GetDataStewardsByResourceId
+
+        Args:
+            containerId: The ID of the container.
+
+        Returns:
+            A list of data stewards, each a dictionary like:
+
+            .. code-block:: json
+                [
+                {
+                    "userId": "00000000-0000-0000-0000-000000000000",
+                    "resourceId": "00000000-0000-0000-0000-000000000000",
+                    "grantedBy": "00000000-0000-0000-0000-000000000000",
+                    "comment": "string"
+                }
+                ]
+
+        """
+        url = f"{self._url}/resources/{containerId}/datastewards"
+        resp = await self.session.get(url)
+        data = await resp.json()
+        if resp.status == 200:
+            return data
+        elif resp.status == 404:
+            raise DataFabricError(f"Container {containerId} does not exist.")
+        else:
+            raise HTTPError(url, resp.status, data, resp.headers, None)
 
     async def get_data_stewards_df(self, resourceId: AnyStr) -> pd.DataFrame:
         raise NotImplementedError()
@@ -563,10 +691,58 @@ class DataFabricAPI(ApiBase):
     # TAGS.
 
     async def get_tags(self, includeDeleted: bool = False, includeNonVeracityApproved: bool = False) -> Sequence:
-        raise NotImplementedError()
+        """ Gets metadata tags.
 
-    async def add_tags(self, *args, **kwargs):
-        raise NotImplementedError()
+        Args:
+            includeDeleted: Also get deleted tags (requires data admin privileges.)
+            includeNonVeracityApproved: Also get get not approved by Veracity.
+
+        Returns:
+            List of tags like:
+
+            .. code-block:: json
+
+                [
+                {
+                    "id": "00000000-0000-0000-0000-000000000000",
+                    "title": "string"
+                }
+                ]
+        """
+        params = {
+            "includeDeleted": includeDeleted,
+            "includeNonVeracityApproved": includeNonVeracityApproved,
+        }
+        url = f"{self._url}/tags"
+        resp = await self.session.get(url, params=params)
+        if resp.status == 200:
+            return await resp.json()
+        else:
+            raise HTTPError(url, resp.status, await resp.text(), resp.headers, None)
+
+    async def add_tags(self, tags: Sequence[str]):
+        """ Adds a list of tags to the Data Fabric.
+
+        Returns:
+            A list of tags with their IDs like:
+
+            .. code-block:: json
+
+                [
+                    {
+                        "id": "00000000-0000-0000-0000-000000000000",
+                        "title": "string"
+                    }
+                ]
+
+        """
+        body = [{"title": tag} for tag in tags]
+        url = f"{self._url}/tags"
+        resp = await self.session.post(url, body)
+        data = await resp.json()
+        if resp.status != 200:
+            raise HTTPError(url, resp.status, data, resp.headers, None)
+        return data
 
     # USERS.
 
@@ -590,7 +766,15 @@ class DataFabricAPI(ApiBase):
         raise NotImplementedError()
 
     async def get_user(self, userId: AnyStr) -> Mapping:
-        raise NotImplementedError()
+        url = f"{self._url}/users/{userId}"
+        resp = await self.session.get(url)
+        data = await resp.json()
+        if resp.status == 200:
+            return data
+        elif resp.status == 404:
+            raise DataFabricError(f"User {userId} does not exist.")
+        else:
+            raise HTTPError(url, resp.status, await resp.text(), resp.headers, None)
 
     # CONTAINERS.
 

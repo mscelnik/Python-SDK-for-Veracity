@@ -66,6 +66,17 @@ class TestDataFabricAPI(object):
             assert data == {"id": 0}
 
     @pytest.mark.asyncio
+    async def test_get_application_404(self, api):
+        """ Get [current] application raises exception upon HTTP/404.
+        """
+        with patch_response(api.session, "get", 404):
+            with pytest.raises(data.DataFabricError):
+                await api.get_current_application()
+
+            with pytest.raises(data.DataFabricError):
+                await api.get_application("1")
+
+    @pytest.mark.asyncio
     async def test_add_application_200(self, api):
         """ Get application has no exceptions.
         """
@@ -96,7 +107,10 @@ class TestDataFabricAPI(object):
     async def test_get_groups(self, api):
         """ Get groups has no exceptions.
         """
-        await api.get_groups()
+        with patch_response(api.session, "get", 200, json={"id": 0}) as mockget:
+            data = await api.get_groups()
+            mockget.assert_called_with("https://api.veracity.com/veracity/datafabric/data/api/1/groups")
+            assert data == {"id": 0}
 
     @pytest.mark.asyncio
     async def test_add_group(self, api):
@@ -119,7 +133,25 @@ class TestDataFabricAPI(object):
     async def test_get_group(self, api):
         """ Get group has no exceptions.
         """
-        await api.get_group()
+        expected = {
+            "id": "1",
+            "title": "mygroup",
+            "description": "my description",
+            "resourceIds": ["0"],
+            "sortingOrder": 0.0,
+        }
+        with patch_response(api.session, "get", 200, json=expected) as mockget:
+            actual = await api.get_group("1")
+            mockget.assert_called_with("https://api.veracity.com/veracity/datafabric/data/api/1/groups/1")
+            assert expected == actual
+
+    @pytest.mark.asyncio
+    async def test_get_group_404(self, api):
+        """ Get group raises exception upon HTTP/404.
+        """
+        with patch_response(api.session, "get", 404):
+            with pytest.raises(data.DataFabricError):
+                await api.get_group("0")
 
     @pytest.mark.asyncio
     async def test_update_group(self, api):
@@ -210,8 +242,8 @@ class TestDataFabricAPI(object):
                 "metadata": {
                     "title": "title",
                     "description": "description",
-                    "icon": {"id": "0", "backgroundColor": "red",},
-                    "tags": [{"id": "00000000-0000-0000-0000-000000000000", "title": "title",}],
+                    "icon": {"id": "0", "backgroundColor": "red"},
+                    "tags": [{"id": "00000000-0000-0000-0000-000000000000", "title": "title"}],
                 },
             }
         ]
@@ -233,10 +265,59 @@ class TestDataFabricAPI(object):
     async def test_get_accesses(self, api, CONTAINER_ID):
         """ Get all access shares for a demo container.
         """
-        data = await api.get_accesses(CONTAINER_ID)
-        assert data is not None
-        assert "results" in data
-        assert "page" in data and data["page"] == 1
+        response = {
+            "results": [
+                {
+                    "userId": "00000000-0000-0000-0000-000000000000",
+                    "ownerId": "00000000-0000-0000-0000-000000000000",
+                    "grantedById": "00000000-0000-0000-0000-000000000000",
+                    "accessSharingId": "00000000-0000-0000-0000-000000000000",
+                    "keyCreated": True,
+                    "autoRefreshed": True,
+                    "keyCreatedTimeUTC": "string",
+                    "keyExpiryTimeUTC": "string",
+                    "resourceType": "string",
+                    "accessHours": 0,
+                    "accessKeyTemplateId": "00000000-0000-0000-0000-000000000000",
+                    "attribute1": True,
+                    "attribute2": True,
+                    "attribute3": True,
+                    "attribute4": True,
+                    "resourceId": "00000000-0000-0000-0000-000000000000",
+                    "ipRange": {"startIp": "string", "endIp": "string"},
+                    "comment": "string",
+                }
+            ],
+            "page": 0,
+            "resultsPerPage": 0,
+            "totalPages": 0,
+            "totalResults": 0,
+        }
+        with patch_response(api.session, "get", 200, json=response) as mockget:
+            result = await api.get_accesses("1")
+            mockget.assert_called_with(
+                "https://api.veracity.com/veracity/datafabric/data/api/1/resources/1/accesses",
+                params={"pageNo": 1, "pageSize": 50},
+            )
+            assert result == response
+
+            result = await api.get_accesses("1", 2)
+            mockget.assert_called_with(
+                "https://api.veracity.com/veracity/datafabric/data/api/1/resources/1/accesses",
+                params={"pageNo": 2, "pageSize": 50},
+            )
+
+            result = await api.get_accesses("1", 2, 100)
+            mockget.assert_called_with(
+                "https://api.veracity.com/veracity/datafabric/data/api/1/resources/1/accesses",
+                params={"pageNo": 2, "pageSize": 100},
+            )
+
+            result = await api.get_accesses("1", pageSize=10)
+            mockget.assert_called_with(
+                "https://api.veracity.com/veracity/datafabric/data/api/1/resources/1/accesses",
+                params={"pageNo": 1, "pageSize": 10},
+            )
 
     @pytest.mark.asyncio
     async def test_get_best_access(self, api, CONTAINER_ID):
@@ -301,8 +382,13 @@ class TestDataFabricAPI(object):
 
     @pytest.mark.asyncio
     async def test_get_data_stewards(self, api):
-        data = await api.get_data_stewards()
-        assert data is not None
+        expected = [{"userId": "0", "resourceId": "1", "grantedBy": "2", "comment": "my comment"}]
+        with patch_response(api.session, "get", 200, json=expected) as mockget:
+            data = await api.get_data_stewards("1")
+            mockget.assert_called_with(
+                "https://api.veracity.com/veracity/datafabric/data/api/1/resources/1/datastewards"
+            )
+            assert expected == data
 
     @pytest.mark.asyncio
     async def test_get_data_stewards_df(self, api):
@@ -349,19 +435,48 @@ class TestDataFabricAPI(object):
 
     @pytest.mark.asyncio
     async def test_get_tags(self, api):
-        data = await api.get_tags()
-        assert data is not None
+        expected = [{"id": "0", "title": "title"}]
+        with patch_response(api.session, "get", 200, json=expected) as mockget:
+            data = await api.get_tags()
+            mockget.assert_called_with(
+                "https://api.veracity.com/veracity/datafabric/data/api/1/tags",
+                params={"includeDeleted": False, "includeNonVeracityApproved": False},
+            )
+            assert data == expected
+
+            data = await api.get_tags(True)
+            mockget.assert_called_with(
+                "https://api.veracity.com/veracity/datafabric/data/api/1/tags",
+                params={"includeDeleted": True, "includeNonVeracityApproved": False},
+            )
+
+            data = await api.get_tags(True, True)
+            mockget.assert_called_with(
+                "https://api.veracity.com/veracity/datafabric/data/api/1/tags",
+                params={"includeDeleted": True, "includeNonVeracityApproved": True},
+            )
+
+            data = await api.get_tags(includeNonVeracityApproved=True)
+            mockget.assert_called_with(
+                "https://api.veracity.com/veracity/datafabric/data/api/1/tags",
+                params={"includeDeleted": False, "includeNonVeracityApproved": True},
+            )
 
     @pytest.mark.asyncio
     async def test_add_tags(self, api):
-        data = await api.add_tags()
-        assert data is not None
+        response = [{"id": "0", "title": "mytag"}]
+        with patch_response(api.session, "post", 200, json=response) as mockpost:
+            result = await api.add_tags(["mytag"])
+            mockpost.assert_called_with(
+                "https://api.veracity.com/veracity/datafabric/data/api/1/tags", [{"title": "mytag"}]
+            )
+            assert result == response
 
     # USERS.
 
     @pytest.mark.asyncio
     async def test_get_shared_users_200(self, api):
-        response = [{"userId": "00000000-0000-0000-0000-000000000000",}]
+        response = [{"userId": "00000000-0000-0000-0000-000000000000"}]
         with patch_response(api.session, "get", 200, json=response) as mockget:
             data = await api.get_shared_users("1")
             mockget.assert_called_with(
@@ -384,8 +499,20 @@ class TestDataFabricAPI(object):
 
     @pytest.mark.asyncio
     async def test_get_user(self, api):
-        data = await api.get_user()
-        assert data is not None
+        response = [{"userId": "0", "companyId": "1", "role": "role"}]
+
+        with patch_response(api.session, "get", 200, json=response) as mockget:
+            data = await api.get_user("0")
+            mockget.assert_called_with("https://api.veracity.com/veracity/datafabric/data/api/1/users/0")
+            assert data == response
+
+    @pytest.mark.asyncio
+    async def test_get_user_404(self, api):
+        """ Get user raises exception upon HTTP/404.
+        """
+        with patch_response(api.session, "get", 404):
+            with pytest.raises(data.DataFabricError):
+                await api.get_user("0")
 
     # CONTAINERS.
 
