@@ -34,7 +34,7 @@ class DataFabricAPI(ApiBase):
     API_ROOT = "https://api.veracity.com/veracity/datafabric"
 
     def __init__(self, credential: identity.Credential, subscription_key: AnyStr, version: AnyStr = None, **kwargs):
-        super().__init__(credential, subscription_key, scope=kwargs.pop('scope', 'veracity_datafabric'), **kwargs)
+        super().__init__(credential, subscription_key, scope=kwargs.pop("scope", "veracity_datafabric"), **kwargs)
         self._url = f"{DataFabricAPI.API_ROOT}/data/api/1"
         self.sas_cache = {}
         self.access_cache = {}
@@ -62,7 +62,7 @@ class DataFabricAPI(ApiBase):
                  "role": "string"
                }
         """
-        url = f'{self._url}/application'
+        url = f"{self._url}/application"
         resp = await self.session.get(url)
         data = await resp.json()
         if resp.status != 200:
@@ -72,7 +72,7 @@ class DataFabricAPI(ApiBase):
     async def get_application(self, applicationId):
         # description: GET Gets information about an application in Veracity data fabric.
         # api-portal documentation: https://api-portal.veracity.com/docs/services/data-api/operations/v1-0Application_Get?
-        url = f'{self._url}/application/{applicationId}'
+        url = f"{self._url}/application/{applicationId}"
         resp = await self.session.get(url)
         data = await resp.json()
         if resp.status != 200:
@@ -94,7 +94,7 @@ class DataFabricAPI(ApiBase):
         Reference:
             https://api-portal.veracity.com/docs/services/data-api/operations/v1-0Application_Create
         """
-        url = f'{self._url}/application'
+        url = f"{self._url}/application"
         body = {
             "id": applicationId,
             "companyId": companyId,
@@ -103,13 +103,15 @@ class DataFabricAPI(ApiBase):
         resp = await self.session.post(url, body)
         if resp.status != 200:
             if resp.status == 409:
-                raise DataFabricError(f'HTTP/409 Application with ID {applicationId} already exists in the Data Fabric.')
+                raise DataFabricError(
+                    f"HTTP/409 Application with ID {applicationId} already exists in the Data Fabric."
+                )
             else:
                 data = await resp.json()
                 raise HTTPError(url, resp.status, data, resp.headers, None)
 
     async def update_application_role(self, applicationId, role):
-        url = f'{self._url}/application/{applicationId}?role={role}'
+        url = f"{self._url}/application/{applicationId}?role={role}"
         resp = await self.session.get(url)
         data = await resp.json()
         if resp.status != 200:
@@ -128,14 +130,16 @@ class DataFabricAPI(ApiBase):
         Reference:
             https://api-portal.veracity.com/docs/services/data-api/operations/v1-0Groups_Get
         """
-        url = f'{self._url}/groups'
+        url = f"{self._url}/groups"
         resp = await self.session.get(url)
         data = await resp.json()
         if resp.status != 200:
             raise HTTPError(url, resp.status, data, resp.headers, None)
         return data
 
-    async def add_group(self, title: str, description: str, containerIds: Sequence[str], sortingOrder: float = 0.0) -> Dict[str, Any]:
+    async def add_group(
+        self, title: str, description: str, containerIds: Sequence[str], sortingOrder: float = 0.0
+    ) -> Dict[str, Any]:
         """ Creates a new container group for the user.
 
         Reference:
@@ -162,7 +166,7 @@ class DataFabricAPI(ApiBase):
                     "sortingOrder": 0.0
                 }
         """
-        url = f'{self._url}/groups'
+        url = f"{self._url}/groups"
         body = {
             "title": title,
             "description": description,
@@ -202,7 +206,7 @@ class DataFabricAPI(ApiBase):
         Exceptions:
             Raises HTTPError if not a 200 response.
         """
-        url = f'{self._url}/keytemplates'
+        url = f"{self._url}/keytemplates"
         resp = await self.session.get(url)
         data = await resp.json()
         if resp.status != 200:
@@ -233,7 +237,7 @@ class DataFabricAPI(ApiBase):
     async def get_ledger(self, containerId: AnyStr) -> pd.DataFrame:
         """ DO NOT USE.  Veracity has removed the ledger feature.
         """
-        raise NotImplementedError('The Veracity Data Fabric ledger has been discontinued.')
+        raise NotImplementedError("The Veracity Data Fabric ledger has been discontinued.")
 
     # RESOURCES.
 
@@ -277,7 +281,7 @@ class DataFabricAPI(ApiBase):
         Raises:
             HTTPError for any response except 200.
         """
-        url = f'{self._url}/resources'
+        url = f"{self._url}/resources"
         resp = await self.session.get(url)
         if resp.status != 200:
             raise HTTPError(url, resp.status, await resp.text(), resp.headers, None)
@@ -297,15 +301,17 @@ class DataFabricAPI(ApiBase):
             DataFabricError for HTTP 403 or 404 errors.
             HTTPError for any other HTTP error code.
         """
-        url = f'{self._url}/resources/{containerId}'
+        url = f"{self._url}/resources/{containerId}"
         resp = await self.session.get(url)
         data = await resp.json()
         if resp.status == 200:
             return data
         elif resp.status == 403:
-            raise DataFabricError(f'HTTP/403 You do not have permission to view container {containerId}. Details:\n{data}')
+            raise DataFabricError(
+                f"HTTP/403 You do not have permission to view container {containerId}. Details:\n{data}"
+            )
         elif resp.status == 404:
-            raise DataFabricError(f'HTTP/404 Data Fabric container {containerId} does not exist. Details:\n{data}')
+            raise DataFabricError(f"HTTP/404 Data Fabric container {containerId} does not exist. Details:\n{data}")
         else:
             raise HTTPError(url, resp.status, await resp.text(), resp.headers, None)
 
@@ -317,12 +323,12 @@ class DataFabricAPI(ApiBase):
         """
         app = await self.get_current_application()
         all_accesses = await self.get_accesses_df(containerId)
-        my_accesses = all_accesses[all_accesses['userId'] == app['id']]
-        best_index = my_accesses['level'].astype(float).idxmax()
+        my_accesses = all_accesses[all_accesses["userId"] == app["id"]]
+        best_index = my_accesses["level"].astype(float).idxmax()
         return my_accesses.loc[best_index]
 
     async def get_accesses(self, resourceId: AnyStr, pageNo: int = 1, pageSize: int = 50) -> Mapping[AnyStr, Any]:
-        url = f'{self._url}/resources/{resourceId}/accesses?pageNo={pageNo}&pageSize={pageSize}'
+        url = f"{self._url}/resources/{resourceId}/accesses?pageNo={pageNo}&pageSize={pageSize}"
         resp = await self.session.get(url)
         if resp.status != 200:
             raise HTTPError(url, resp.status, await resp.text(), resp.headers, None)
@@ -333,19 +339,26 @@ class DataFabricAPI(ApiBase):
         """ Gets the access levels as a dataframe, including the "level" value.
         """
         import pandas as pd
+
         data = await self.get_accesses(resourceId, pageNo, pageSize)
-        df = pd.DataFrame(data['results'])
+        df = pd.DataFrame(data["results"])
         # Add the level values for future use.
-        df['level'] = self._access_levels(df)
+        df["level"] = self._access_levels(df)
         self.access_cache[resourceId] = df
         return df
 
-    async def share_access(self, containerId: AnyStr,
-                           userId: AnyStr, accessKeyTemplateId: AnyStr,
-                           autoRefreshed: bool = False,
-                           comment: AnyStr = None,
-                           startIp: AnyStr = None, endIp: AnyStr = None,
-                           *args, **kwargs):
+    async def share_access(
+        self,
+        containerId: AnyStr,
+        userId: AnyStr,
+        accessKeyTemplateId: AnyStr,
+        autoRefreshed: bool = False,
+        comment: AnyStr = None,
+        startIp: AnyStr = None,
+        endIp: AnyStr = None,
+        *args,
+        **kwargs,
+    ):
         """ Shares container access with a user/application.
 
         Args:
@@ -362,7 +375,7 @@ class DataFabricAPI(ApiBase):
             Raises DataFabric error for known errors.
             Raises HTTPError for unknown errors.
         """
-        url = f'{self._url}/resources/{containerId}/accesses'
+        url = f"{self._url}/resources/{containerId}/accesses"
 
         # Build data payload.
         payload = {
@@ -370,19 +383,19 @@ class DataFabricAPI(ApiBase):
             "accessKeyTemplateId": accessKeyTemplateId,
         }
         if comment:
-            payload['comment'] = comment
+            payload["comment"] = comment
         if startIp and endIp:
-            payload['ipRange'] = {'startIp': startIp, 'endIp': endIp}
+            payload["ipRange"] = {"startIp": startIp, "endIp": endIp}
 
-        resp = await self.session.post(url, json=payload, params={'autoRefreshed': str(autoRefreshed).lower()})
+        resp = await self.session.post(url, json=payload, params={"autoRefreshed": str(autoRefreshed).lower()})
         data = await resp.json()
 
         if resp.status == 200:
-            return data['accessSharingId']
+            return data["accessSharingId"]
         elif resp.status == 400:
-            raise DataFabricError(f'HTTP/400 Malformed payload to share container access. Details:\n{data}')
+            raise DataFabricError(f"HTTP/400 Malformed payload to share container access. Details:\n{data}")
         elif resp.status == 404:
-            raise DataFabricError(f'HTTP/404 Data Fabric container {containerId} does not exist. Details:\n{data}')
+            raise DataFabricError(f"HTTP/404 Data Fabric container {containerId} does not exist. Details:\n{data}")
         else:
             raise HTTPError(url, resp.status, data, resp.headers, None)
 
@@ -426,27 +439,28 @@ class DataFabricAPI(ApiBase):
             access_id = accessId
         else:
             access = await self.get_best_access(resourceId)
-            access_id = access.get('accessSharingId')
+            access_id = access.get("accessSharingId")
 
-        assert access_id is not None, 'Could not find access rights for current user.'
-        url = f'{self._url}/resources/{resourceId}/accesses/{access_id}/key'
+        assert access_id is not None, "Could not find access rights for current user."
+        url = f"{self._url}/resources/{resourceId}/accesses/{access_id}/key"
         resp = await self.session.put(url)
         data = await resp.json()
         if resp.status != 200:
             raise HTTPError(url, resp.status, data, resp.headers, None)
         # The API response does not include the access ID; we add for future use.
-        data['accessId'] = access_id
+        data["accessId"] = access_id
         self.sas_cache[resourceId] = data
         return data
 
     def get_sas_cached(self, resourceId: AnyStr) -> pd.DataFrame:
         from datetime import datetime, timezone
         import dateutil
+
         sas = self.sas_cache.get(resourceId)
         if not sas:
             return None
-        expiry = dateutil.parser.isoparse(sas['sasKeyExpiryTimeUTC'])
-        if (not sas['isKeyExpired']) and (datetime.now(timezone.utc) < expiry):
+        expiry = dateutil.parser.isoparse(sas["sasKeyExpiryTimeUTC"])
+        if (not sas["isKeyExpired"]) and (datetime.now(timezone.utc) < expiry):
             return sas
         else:
             # Remove the expired key from the cache.
@@ -480,10 +494,11 @@ class DataFabricAPI(ApiBase):
             Pandas Series with same index as input.
         """
         import numpy as np
+
         scores = np.array([4, 1, 8, 2])
-        attrs = accesses[['attribute1', 'attribute2', 'attribute3', 'attribute4']].to_numpy()
+        attrs = accesses[["attribute1", "attribute2", "attribute3", "attribute4"]].to_numpy()
         levels = (attrs * scores).sum(axis=1)
-        return pd.Series(levels, index=accesses.index, dtype='Int64')
+        return pd.Series(levels, index=accesses.index, dtype="Int64")
 
     # DATA STEWARDS.
 
@@ -516,7 +531,7 @@ class DataFabricAPI(ApiBase):
                     "comment": "string"
                 }
         """
-        url = f'{self._url}/resources/{containerId}/datastewards/{userId}'
+        url = f"{self._url}/resources/{containerId}/datastewards/{userId}"
         body = {"comment": comment}
         resp = await self.session.post(url, body)
         data = await resp.json()
@@ -527,17 +542,17 @@ class DataFabricAPI(ApiBase):
     async def delete_data_steward(self, containerId: AnyStr, userId: AnyStr):
         """ Removes a user as a container data steward.
         """
-        url = f'{self._url}/resources/{containerId}/datastewards/{userId}'
+        url = f"{self._url}/resources/{containerId}/datastewards/{userId}"
         resp = await self.session.delete(url)
         if resp.status != 200:
             data = await resp.json()
             if resp.status == 403:
                 raise DataFabricError(
-                    f'HTTP/403 You do not have permission to delete data stewards on container {containerId}.'
+                    f"HTTP/403 You do not have permission to delete data stewards on container {containerId}."
                 )
             elif resp.status == 404:
                 raise DataFabricError(
-                    f'HTTP/404 Container {containerId} does not exist or user {userId} is not a data steward.'
+                    f"HTTP/404 Container {containerId} does not exist or user {userId} is not a data steward."
                 )
             else:
                 raise HTTPError(url, resp.status, data, resp.headers, None)
@@ -561,7 +576,7 @@ class DataFabricAPI(ApiBase):
         Args:
             userId: User ID whose resource list to check.
         """
-        url = f'{self._url}/users/ResourceDistributionList?userId={userId}'
+        url = f"{self._url}/users/ResourceDistributionList?userId={userId}"
         resp = await self.session.get(url)
         data = await resp.json()
         if resp.status == 200:
@@ -583,5 +598,5 @@ class DataFabricAPI(ApiBase):
         """ Gets Veracity container client (using Azure Storage SDK.)
         """
         sas = await self.get_sas(containerId, **kwargs)
-        sasurl = sas['fullKey']
+        sasurl = sas["fullKey"]
         return ContainerClient.from_container_url(sasurl)

@@ -3,6 +3,7 @@
 
 from typing import AnyStr, Tuple, List
 from .base import ApiBase
+
 # TODO: Define a custom API exception.
 from urllib.error import HTTPError
 
@@ -25,7 +26,7 @@ class UserAPI(ApiBase):
     API_ROOT = "https://api.veracity.com/veracity/services"
 
     def __init__(self, credential, subscription_key, version="v3", **kwargs):
-        super().__init__(credential, subscription_key, scope=kwargs.pop('scope', 'veracity_service'), **kwargs)
+        super().__init__(credential, subscription_key, scope=kwargs.pop("scope", "veracity_service"), **kwargs)
         self._url = f"{UserAPI.API_ROOT}/{version}/my"
 
     @property
@@ -33,7 +34,7 @@ class UserAPI(ApiBase):
         return self._url
 
     async def get_companies(self):
-        endpoint = f'{self.url}/companies'
+        endpoint = f"{self.url}/companies"
         resp = await self.session.get(endpoint)
         data = await resp.json(content_type=None)
         if resp.status != 200:
@@ -41,7 +42,7 @@ class UserAPI(ApiBase):
         return data
 
     async def get_messages(self, all=False, supportCode=None):
-        endpoint = f'{self.url}/messages'
+        endpoint = f"{self.url}/messages"
         resp = await self.session.get(endpoint)
         data = await resp.json()
         if resp.status != 200:
@@ -49,7 +50,7 @@ class UserAPI(ApiBase):
         return data
 
     async def get_message_count(self):
-        endpoint = f'{self.url}/messages'
+        endpoint = f"{self.url}/messages"
         resp = await self.session.get(endpoint)
         if resp.status != 200:
             data = await resp.json()
@@ -57,7 +58,7 @@ class UserAPI(ApiBase):
         return int(await resp.text())
 
     async def get_message(self, messageId):
-        endpoint = f'{self.url}/messages/{messageId}'
+        endpoint = f"{self.url}/messages/{messageId}"
         resp = await self.session.get(endpoint)
         data = await resp.json()
         if resp.status != 200:
@@ -65,17 +66,19 @@ class UserAPI(ApiBase):
         return data
 
     async def validate_policies(self, returnUrl=None):
-        endpoint = f'{self.url}/policies/validate()'
+        endpoint = f"{self.url}/policies/validate()"
         resp = await self.session.get(endpoint)
         if resp.status == 204:
             return True, []
         data = await resp.json()
         if resp.status == 406:
-            return False, data['violatedPolicies']
+            return False, data["violatedPolicies"]
         else:
             raise HTTPError(endpoint, resp.status, data, resp.headers, None)
 
-    async def validate_service_policy(self, serviceId: AnyStr, returnUrl=None, supportCode=None) -> Tuple[bool, List[AnyStr]]:
+    async def validate_service_policy(
+        self, serviceId: AnyStr, returnUrl=None, supportCode=None
+    ) -> Tuple[bool, List[AnyStr]]:
         """ Validates the user policies for the specified service.
 
         Args:
@@ -86,18 +89,18 @@ class UserAPI(ApiBase):
         Returns:
             Tuple of (Is valid: bool, List of violated policies: list[str]).
         """
-        endpoint = f'{self.url}/policies/{serviceId}/validate()'
+        endpoint = f"{self.url}/policies/{serviceId}/validate()"
         resp = await self.session.get(endpoint)
         if resp.status == 204:
             return True, []
         data = await resp.json()
         if resp.status == 406:
-            return False, data['violatedPolicies']
+            return False, data["violatedPolicies"]
         else:
             raise HTTPError(endpoint, resp.status, data, resp.headers, None)
 
     async def get_profile(self):
-        endpoint = f'{self.url}/profile'
+        endpoint = f"{self.url}/profile"
         resp = await self.session.get(endpoint)
         data = await resp.json()
         if resp.status != 200:
@@ -105,7 +108,7 @@ class UserAPI(ApiBase):
         return data
 
     async def get_services(self):
-        endpoint = f'{self.url}/services'
+        endpoint = f"{self.url}/services"
         resp = await self.session.get(endpoint)
         data = await resp.json()
         if resp.status != 200:
@@ -113,7 +116,7 @@ class UserAPI(ApiBase):
         return data
 
     async def get_widgets(self):
-        endpoint = f'{self.url}/widgets'
+        endpoint = f"{self.url}/widgets"
         resp = await self.session.get(endpoint)
         data = await resp.json()
         if resp.status != 200:
@@ -139,7 +142,7 @@ class ClientAPI(ApiBase):
     API_ROOT = "https://api.veracity.com/veracity/services"
 
     def __init__(self, credential, subscription_key, version="v3", **kwargs):
-        super().__init__(credential, subscription_key, scope=kwargs.pop('scope', 'veracity_service'), **kwargs)
+        super().__init__(credential, subscription_key, scope=kwargs.pop("scope", "veracity_service"), **kwargs)
         self._url = f"{ClientAPI.API_ROOT}/{version}/this"
 
     @property
@@ -149,9 +152,9 @@ class ClientAPI(ApiBase):
     async def get_services(self, page, pageSize=10):
         raise NotImplementedError()
 
-    async def post_notification(self, name, content, id_, timeStamp, recipients,
-                                serviceId, channelId=None, type_=0,
-                                highPriority=False):
+    async def post_notification(
+        self, name, content, id_, timeStamp, recipients, serviceId, channelId=None, type_=0, highPriority=False
+    ):
         raise NotImplementedError()
 
     async def get_subscribers(self, page, pageSize=10, serviceId=None):
@@ -166,9 +169,18 @@ class ClientAPI(ApiBase):
     async def remove_subscriber(self, userId, serviceId=None):
         raise NotImplementedError()
 
-    async def create_user(self, firstName, lastName, email, role, contactEmail,
-                          contactName, returnUrl, sendMail=True,
-                          createSubscription=True):
+    async def create_user(
+        self,
+        firstName,
+        lastName,
+        email,
+        role,
+        contactEmail,
+        contactName,
+        returnUrl,
+        sendMail=True,
+        createSubscription=True,
+    ):
         raise NotImplementedError()
 
     async def get_user_from_email(self, email):

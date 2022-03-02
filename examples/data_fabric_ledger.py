@@ -18,15 +18,15 @@ from azure.keyvault import secrets
 from veracity_platform.identity import ClientSecretCredential
 from veracity_platform.data import DataFabricAPI
 
-KEYVAULT = os.environ.get('TEST_KEYVAULT_URL')
+KEYVAULT = os.environ.get("TEST_KEYVAULT_URL")
 
 cred = azure.identity.DefaultAzureCredential()
 client = secrets.SecretClient(KEYVAULT, credential=cred)
 
-CLIENT_ID = client.get_secret('TestApp-DF-ID').value
-CLIENT_SECRET = client.get_secret('TestApp-DF-Secret').value
-SUBSCRIPTION_KEY = client.get_secret('TestApp-DF-Sub').value
-CONTAINER_ID = client.get_secret('Test-Container-ID').value
+CLIENT_ID = client.get_secret("TestApp-DF-ID").value
+CLIENT_SECRET = client.get_secret("TestApp-DF-Secret").value
+SUBSCRIPTION_KEY = client.get_secret("TestApp-DF-Sub").value
+CONTAINER_ID = client.get_secret("Test-Container-ID").value
 RESOURCE_URL = "https://dnvglb2cprod.onmicrosoft.com/dfba9693-546d-4300-bcd7-d8d525bdff38"
 
 # Get a client/secret credential as this is a backend service accessing the data
@@ -43,10 +43,10 @@ async def main():
         print(ledger)
 
         # The ledger return is a Pandas dataframe, so we can do stats on it.
-        print(ledger.groupby('entityId')['fileName'].count())
+        print(ledger.groupby("entityId")["fileName"].count())
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # Note, if we use asyncio.run() we get errors due to some known bug in aiohttp.
     # Getting a new event loop fixes this.
     asyncio.get_event_loop().run_until_complete(main())

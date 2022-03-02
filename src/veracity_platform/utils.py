@@ -13,8 +13,9 @@ def fix_aiohttp():
             try:
                 return func(self, *args, **kwargs)
             except RuntimeError as e:
-                if str(e) != 'Event loop is closed':
+                if str(e) != "Event loop is closed":
                     raise
+
         return wrapper
 
     _ProactorBasePipeTransport.__del__ = silence_event_loop_closed(_ProactorBasePipeTransport.__del__)

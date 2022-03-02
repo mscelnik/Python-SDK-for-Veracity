@@ -9,8 +9,7 @@ from veracity_platform import identity
 @pytest.mark.interactive
 @pytest.mark.requires_secrets
 class TestUserAPI(object):
-
-    @pytest.fixture(scope='class')
+    @pytest.fixture(scope="class")
     def credential(self, CLIENT_ID, CLIENT_SECRET):
         yield identity.InteractiveBrowserCredential(CLIENT_ID, client_secret=CLIENT_SECRET)
 

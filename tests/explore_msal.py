@@ -11,7 +11,7 @@ EXAMPLE_VERACITY_CLIENT_ID = os.environ["EXAMPLE_VERACITY_CLIENT_ID"]
 EXAMPLE_VERACITY_CLIENT_SECRET = os.environ["EXAMPLE_VERACITY_CLIENT_SECRET"]
 EXAMPLE_VERACITY_SUBSCRIPTION_KEY = os.environ["EXAMPLE_VERACITY_SUBSCRIPTION_KEY"]
 
-scope = veracity_platform.identity.ALLOWED_SCOPES['veracity']
+scope = veracity_platform.identity.ALLOWED_SCOPES["veracity"]
 
 # This does not work.  It complains that you need to provide a client credential.
 client = msal.PublicClientApplication(

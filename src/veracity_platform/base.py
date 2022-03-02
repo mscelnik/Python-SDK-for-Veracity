@@ -53,7 +53,9 @@ class ApiBase(object):
     def default_headers(self) -> Dict[AnyStr, AnyStr]:
         return self._headers
 
-    async def connect(self, reset: bool = False, credential: identity.Credential = None, key: AnyStr = None) -> ClientSession:
+    async def connect(
+        self, reset: bool = False, credential: identity.Credential = None, key: AnyStr = None
+    ) -> ClientSession:
         """ Create a single HTTP session to call the API.
         Optionally reset the existing session or change the credentials.
 
@@ -79,13 +81,13 @@ class ApiBase(object):
 
         if reset_headers:
             token = self.credential.get_token(self.scopes)
-            if 'error' in token:
-                raise RuntimeError(f'Failed to get token:\n{token}')
-            assert 'access_token' in token, 'Token does not provide API access privileges for requested scopes.'
-            actual_token = token['access_token']
+            if "error" in token:
+                raise RuntimeError(f"Failed to get token:\n{token}")
+            assert "access_token" in token, "Token does not provide API access privileges for requested scopes."
+            actual_token = token["access_token"]
             self._headers = {
-                'Ocp-Apim-Subscription-Key': self.subscription_key,
-                'Authorization': f'Bearer {actual_token}',
+                "Ocp-Apim-Subscription-Key": self.subscription_key,
+                "Authorization": f"Bearer {actual_token}",
             }
 
         if reset:
@@ -101,6 +103,7 @@ class ApiBase(object):
         """ Disconnects the HTTP session. Not essential but good practice.
         """
         from asyncio import shield
+
         if self._session is not None:
             await shield(self._session.connector.close())
             await shield(self._session.close())

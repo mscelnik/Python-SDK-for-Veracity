@@ -44,23 +44,23 @@ DEFAULT_POLICY = "b2c_1a_signinwithadfsidp"
 #       'https://dnvglb2cprod.onmicrosoft.com/83054ebf-1d7b-43f5-82ad-b2bde84d7b75/user_impersonation
 
 # See https://developer.veracity.com/docs/section/identity/authentication/web-native#authenticating-a-user for API scopes.
-SERVICE_API_SCOPE = 'https://dnvglb2cprod.onmicrosoft.com/83054ebf-1d7b-43f5-82ad-b2bde84d7b75'
-DATAFABRIC_API_SCOPE = 'https://dnvglb2cprod.onmicrosoft.com/37c59c8d-cd9d-4cd5-b05a-e67f1650ee14'
+SERVICE_API_SCOPE = "https://dnvglb2cprod.onmicrosoft.com/83054ebf-1d7b-43f5-82ad-b2bde84d7b75"
+DATAFABRIC_API_SCOPE = "https://dnvglb2cprod.onmicrosoft.com/37c59c8d-cd9d-4cd5-b05a-e67f1650ee14"
 
 # See https://developer.veracity.com/docs/section/onboarding/clientv1 for resource URIs.
-SERVICE_RESOURCE = 'https://dnvglb2cprod.onmicrosoft.com/dfc0f96d-1c85-4334-a600-703a89a32a4c'
-DATAFABRIC_RESOURCE = 'https://dnvglb2cprod.onmicrosoft.com/dfba9693-546d-4300-bcd7-d8d525bdff38'
+SERVICE_RESOURCE = "https://dnvglb2cprod.onmicrosoft.com/dfc0f96d-1c85-4334-a600-703a89a32a4c"
+DATAFABRIC_RESOURCE = "https://dnvglb2cprod.onmicrosoft.com/dfba9693-546d-4300-bcd7-d8d525bdff38"
 
 USER_SCOPES = {
-    'veracity': f'{SERVICE_API_SCOPE}/user_impersonation',
-    'veracity_service': f'{SERVICE_API_SCOPE}/user_impersonation',
-    'veracity_datafabric': f'{DATAFABRIC_API_SCOPE}/user_impersonation',
+    "veracity": f"{SERVICE_API_SCOPE}/user_impersonation",
+    "veracity_service": f"{SERVICE_API_SCOPE}/user_impersonation",
+    "veracity_datafabric": f"{DATAFABRIC_API_SCOPE}/user_impersonation",
 }
 
 CONF_SCOPES = {
-    'veracity': f'{SERVICE_RESOURCE}/.default',
-    'veracity_service': f'{SERVICE_RESOURCE}/.default',
-    'veracity_datafabric': f'{DATAFABRIC_RESOURCE}/.default',
+    "veracity": f"{SERVICE_RESOURCE}/.default",
+    "veracity_service": f"{SERVICE_RESOURCE}/.default",
+    "veracity_datafabric": f"{DATAFABRIC_RESOURCE}/.default",
 }
 
 
@@ -107,7 +107,7 @@ class Credential(object):
         self.service = service
 
     def get_token(self, scopes: Sequence[AnyStr], **kwargs) -> Dict[AnyStr, AnyStr]:
-        raise NotImplementedError('Do not use base class directly.')
+        raise NotImplementedError("Do not use base class directly.")
 
 
 class AuthorizationCodeCredential(Credential):
@@ -129,7 +129,7 @@ class InteractiveBrowserCredential(Credential):
         client_secret (str): Optional client secret.
     """
 
-    def __init__(self, client_id: AnyStr, redirect_uri: AnyStr = 'http://localhost', client_secret: AnyStr = None):
+    def __init__(self, client_id: AnyStr, redirect_uri: AnyStr = "http://localhost", client_secret: AnyStr = None):
         app = msal.ConfidentialClientApplication(
             client_id=client_id,
             client_credential=client_secret,
@@ -165,7 +165,7 @@ class InteractiveBrowserCredential(Credential):
         flow = self.service.initiate_auth_code_flow(clean_scopes, redirect_uri=self.redirect_uri)
 
         # Open system default browser to auth url.
-        auth_url = flow['auth_uri']
+        auth_url = flow["auth_uri"]
         if not webbrowser.open(auth_url):
             raise IdentityError("Failed to open system web browser for interactive credential.")
 
@@ -225,7 +225,7 @@ class ClientSecretCredential(Credential):
     def get_token(self, scopes: Sequence[AnyStr], **kwargs) -> Dict[AnyStr, AnyStr]:
         if self.resource is not None:
             # Inject the resource into the token request body.
-            kwargs['data'] = {'resource': self.resource}
+            kwargs["data"] = {"resource": self.resource}
         clean_scopes = expand_veracity_scopes(scopes, interactive=False)
         return self.service.acquire_token_for_client(clean_scopes, **kwargs)
 
@@ -248,7 +248,7 @@ class DeviceCodeCredential(Credential):
 
 class UsernamePasswordCredential(Credential):
     def __init__(self):
-        raise NotImplementedError('Why are you storing user passwords? Use InteractiveBrowserCredential instead!')
+        raise NotImplementedError("Why are you storing user passwords? Use InteractiveBrowserCredential instead!")
 
 
 class AuthCodeRedirectHandler(BaseHTTPRequestHandler):
@@ -261,6 +261,7 @@ class AuthCodeRedirectHandler(BaseHTTPRequestHandler):
         - https://github.com/Azure/azure-sdk-for-python/blob/master/sdk/identity/
             azure-identity/azure/identity/_internal/auth_code_redirect_handler.py
     """
+
     def do_GET(self):
         from urllib.parse import urlparse, parse_qs
 
@@ -299,6 +300,7 @@ class AuthCodeRedirectServer(HTTPServer):
 
     def __init__(self, uri: AnyStr, timeout: int):
         from urllib.parse import urlparse
+
         urlbits = urlparse(uri)
         hostname = urlbits.hostname
         port = urlbits.port or 80
@@ -329,8 +331,5 @@ def get_datafabric_token(client_id: AnyStr, client_secret: AnyStr) -> Dict[AnySt
     """ Quickly get an access token for the Veracity Data Fabric.
     """
     RESOURCE = "https://dnvglb2cprod.onmicrosoft.com/dfba9693-546d-4300-bcd7-d8d525bdff38"
-    cred = ClientSecretCredential(
-        client_id=client_id,
-        client_secret=client_secret
-    )
-    return cred.get_token(scopes=['veracity_datafabric'])
+    cred = ClientSecretCredential(client_id=client_id, client_secret=client_secret)
+    return cred.get_token(scopes=["veracity_datafabric"])
