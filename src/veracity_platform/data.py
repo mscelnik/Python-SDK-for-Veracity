@@ -135,7 +135,7 @@ class DataFabricAPI(ApiBase):
             raise HTTPError(url, resp.status, data, resp.headers, None)
         return data
 
-    async def add_group(self, title: str, description: str, containerIds: Sequence[str], sortingOrder: float) -> Dict[str, Any]:
+    async def add_group(self, title: str, description: str, containerIds: Sequence[str], sortingOrder: float = 0.0) -> Dict[str, Any]:
         """ Creates a new container group for the user.
 
         Reference:
@@ -555,15 +555,21 @@ class DataFabricAPI(ApiBase):
 
     # USERS.
 
-    async def get_shared_users(self, userId: AnyStr) -> List:
+    async def get_shared_users(self, userId: AnyStr) -> List[Dict]:
         """ Gets list of users with whom current user has shared storage account access.
+
+        Args:
+            userId: User ID whose resource list to check.
         """
         url = f'{self._url}/users/ResourceDistributionList?userId={userId}'
         resp = await self.session.get(url)
         data = await resp.json()
-        if resp.status != 200:
+        if resp.status == 200:
+            return data
+        elif resp.status == 403:
+            raise DataFabricError("You do not have permission to view resource list for user {userId}.")
+        else:
             raise HTTPError(url, resp.status, await resp.text(), resp.headers, None)
-        return data
 
     async def get_current_user(self) -> Mapping:
         raise NotImplementedError()
