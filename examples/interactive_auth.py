@@ -19,7 +19,9 @@ CLIENT_SECRET = os.environ.get("TEST_CONF_APP_SECRET")
 SUBSCRIPTION_KEY = os.environ.get("TEST_CONF_APP_SUB")
 REDIRECT_URI = "http://localhost/login"
 
-cred = InteractiveBrowserCredential(CLIENT_ID, REDIRECT_URI, client_secret=CLIENT_SECRET)
+cred = InteractiveBrowserCredential(
+    CLIENT_ID, REDIRECT_URI, client_secret=CLIENT_SECRET
+)
 scopes = ["veracity"]
 # scopes = ['https://dnvglb2cprod.onmicrosoft.com/83054ebf-1d7b-43f5-82ad-b2bde84d7b75/user_impersonation']
 token = cred.get_token(scopes=scopes, timeout=30)

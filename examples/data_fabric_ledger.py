@@ -27,11 +27,15 @@ CLIENT_ID = client.get_secret("TestApp-DF-ID").value
 CLIENT_SECRET = client.get_secret("TestApp-DF-Secret").value
 SUBSCRIPTION_KEY = client.get_secret("TestApp-DF-Sub").value
 CONTAINER_ID = client.get_secret("Test-Container-ID").value
-RESOURCE_URL = "https://dnvglb2cprod.onmicrosoft.com/dfba9693-546d-4300-bcd7-d8d525bdff38"
+RESOURCE_URL = (
+    "https://dnvglb2cprod.onmicrosoft.com/dfba9693-546d-4300-bcd7-d8d525bdff38"
+)
 
 # Get a client/secret credential as this is a backend service accessing the data
 # fabric.
-cred = ClientSecretCredential(client_id=CLIENT_ID, client_secret=CLIENT_SECRET, resource=RESOURCE_URL)
+cred = ClientSecretCredential(
+    client_id=CLIENT_ID, client_secret=CLIENT_SECRET, resource=RESOURCE_URL
+)
 
 
 async def main():

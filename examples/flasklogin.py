@@ -75,7 +75,9 @@ def login():
             return redirect(url_for("index"))
 
     # No auth code or token acquisition failed.  Redirect to Veracity login.
-    session["flow"] = id_service.initiate_auth_code_flow(SCOPES, redirect_uri=REDIRECT_URI)
+    session["flow"] = id_service.initiate_auth_code_flow(
+        SCOPES, redirect_uri=REDIRECT_URI
+    )
     response = redirect(session["flow"]["auth_uri"])
     return response
 

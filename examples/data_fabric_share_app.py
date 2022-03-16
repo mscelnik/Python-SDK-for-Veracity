@@ -43,11 +43,16 @@ async def main():
     async with DataFabricAPI(cred, SUBSCRIPTION) as api:
         # Get all key templates for your container then filter to only one.
         allkeys = await api.get_keytemplates()
-        subkeys = filter(lambda x: x["totalHours"] == 1 and x["name"] == "Read, write and list key", allkeys)
+        subkeys = filter(
+            lambda x: x["totalHours"] == 1 and x["name"] == "Read, write and list key",
+            allkeys,
+        )
         key = next(subkeys)
 
         # Share access with the client application.
-        accessid = await api.share_access(CONTAINER_ID, CLIENT_ID, accessKeyTemplateId=key["id"], autoRefreshed=True,)
+        accessid = await api.share_access(
+            CONTAINER_ID, CLIENT_ID, accessKeyTemplateId=key["id"], autoRefreshed=True,
+        )
 
     print(f"Shared access to container {CONTAINER_ID} with access ID {accessid}.")
 

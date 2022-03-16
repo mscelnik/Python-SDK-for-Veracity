@@ -30,7 +30,11 @@ def main():
 
     uri = "https://api.veracity.com/veracity/datafabric/search/api/v1/me/Services"
     response = requests.get(
-        uri, headers={"Ocp-Apim-Subscription-Key": SUBSCRIPTION, "Authorization": f"Bearer {access_token}",},
+        uri,
+        headers={
+            "Ocp-Apim-Subscription-Key": SUBSCRIPTION,
+            "Authorization": f"Bearer {access_token}",
+        },
     )
 
     print(response.status_code)
