@@ -11,7 +11,9 @@ from veracity_platform import identity
 class TestInteractiveBrowserCredential(object):
     @pytest.fixture(scope="class")
     def credential(self, CLIENT_ID, CLIENT_SECRET):
-        yield identity.InteractiveBrowserCredential(CLIENT_ID, client_secret=CLIENT_SECRET)
+        yield identity.InteractiveBrowserCredential(
+            CLIENT_ID, client_secret=CLIENT_SECRET
+        )
 
     def test_get_token(self, credential):
         token = credential.get_token(["veracity"])

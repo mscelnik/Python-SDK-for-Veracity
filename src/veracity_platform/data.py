@@ -15,7 +15,7 @@ class DataFabricError(RuntimeError):
 
 
 class DataFabricAPI(ApiBase):
-    """ Access to the data fabric endpoints (/datafabric) in the Veracity API.
+    """Access to the data fabric endpoints (/datafabric) in the Veracity API.
 
 
     All web calls are async using aiohttp.  Returns web responses exactly as
@@ -32,8 +32,19 @@ class DataFabricAPI(ApiBase):
 
     API_ROOT = "https://api.veracity.com/veracity/datafabric"
 
-    def __init__(self, credential: identity.Credential, subscription_key: AnyStr, version: AnyStr = None, **kwargs):
-        super().__init__(credential, subscription_key, scope=kwargs.pop("scope", "veracity_datafabric"), **kwargs)
+    def __init__(
+        self,
+        credential: identity.Credential,
+        subscription_key: AnyStr,
+        version: AnyStr = None,
+        **kwargs,
+    ):
+        super().__init__(
+            credential,
+            subscription_key,
+            scope=kwargs.pop("scope", "veracity_datafabric"),
+            **kwargs,
+        )
         self._url = f"{DataFabricAPI.API_ROOT}/data/api/1"
         self.sas_cache = {}
         self.access_cache = {}
@@ -45,7 +56,7 @@ class DataFabricAPI(ApiBase):
     # APPLICATIONS.
 
     async def get_current_application(self) -> Dict[str, str]:
-        """ Gets information about the current application.
+        """Gets information about the current application.
 
         Reference:
             https://api-portal.veracity.com/docs/services/data-api/operations/v1-0Application_Me
@@ -69,7 +80,7 @@ class DataFabricAPI(ApiBase):
         return data
 
     async def get_application(self, applicationId: str) -> Dict[str, str]:
-        """ Gets information about an application in Veracity data fabric.
+        """Gets information about an application in Veracity data fabric.
 
         Reference:
             https://api-portal.veracity.com/docs/services/data-api/operations/v1-0Application_Get
@@ -94,12 +105,14 @@ class DataFabricAPI(ApiBase):
         if resp.status == 200:
             return data
         elif resp.status == 404:
-            raise DataFabricError(f"Application {applicationId} does not existing in the Data Fabric.")
+            raise DataFabricError(
+                f"Application {applicationId} does not existing in the Data Fabric."
+            )
         else:
             raise HTTPError(url, resp.status, data, resp.headers, None)
 
     async def add_application(self, applicationId: str, companyId: str, role: str):
-        """ Adds a new application to the Data Fabric.
+        """Adds a new application to the Data Fabric.
 
         Args:
             applicationId: GUID of the application to add to the Data Fabric.
@@ -140,7 +153,7 @@ class DataFabricAPI(ApiBase):
     # GROUPS.
 
     async def get_groups(self) -> Dict[str, Any]:
-        """ Get user's container groups.
+        """Get user's container groups.
 
         The Data Fabric uses groups to organize containers in the web portal.  This
         is mostly for convenience and is on a per-user basis.  Users cannot share
@@ -157,9 +170,13 @@ class DataFabricAPI(ApiBase):
         return data
 
     async def add_group(
-        self, title: str, description: str, containerIds: Sequence[str], sortingOrder: float = 0.0
+        self,
+        title: str,
+        description: str,
+        containerIds: Sequence[str],
+        sortingOrder: float = 0.0,
     ) -> Dict[str, Any]:
-        """ Creates a new container group for the user.
+        """Creates a new container group for the user.
 
         Reference:
             https://api-portal.veracity.com/docs/services/data-api/operations/v1-0Groups_Post
@@ -199,7 +216,7 @@ class DataFabricAPI(ApiBase):
         return data
 
     async def get_group(self, groupId: str) -> Dict[str, Any]:
-        """ Gets information about a single group.
+        """Gets information about a single group.
 
         Reference:
             https://api-portal.veracity.com/docs/services/data-api/operations/v1-0Groups_GetById
@@ -241,7 +258,7 @@ class DataFabricAPI(ApiBase):
     # KEY TEMPLATES.
 
     async def get_keytemplates(self):
-        """ Gets key templates the current credential can generate.
+        """Gets key templates the current credential can generate.
 
         A key template denotes an access level (read, write, list, delete) and
         an expiry interval.  Typically you get the key templates prior to sharing
@@ -264,7 +281,7 @@ class DataFabricAPI(ApiBase):
         return data
 
     async def get_keytemplates_df(self):
-        """ Gets key templates the current credential can generate as a Pandas dataframe.
+        """Gets key templates the current credential can generate as a Pandas dataframe.
 
         A key template denotes an access level (read, write, list, delete) and
         an expiry interval.  Typically you get the key templates prior to sharing
@@ -285,14 +302,15 @@ class DataFabricAPI(ApiBase):
     # LEDGER.
 
     async def get_ledger(self, containerId: AnyStr) -> pd.DataFrame:
-        """ DO NOT USE.  Veracity has removed the ledger feature.
-        """
-        raise NotImplementedError("The Veracity Data Fabric ledger has been discontinued.")
+        """DO NOT USE.  Veracity has removed the ledger feature."""
+        raise NotImplementedError(
+            "The Veracity Data Fabric ledger has been discontinued."
+        )
 
     # RESOURCES.
 
     async def get_resources(self) -> List[Dict[str, Any]]:
-        """ Gets metadata for all containers for which you can claim keys.
+        """Gets metadata for all containers for which you can claim keys.
 
         Returns:
             Upon success, a list of container metadata (each a dictionary) like:
@@ -339,7 +357,7 @@ class DataFabricAPI(ApiBase):
         return data
 
     async def get_resource(self, containerId: AnyStr):
-        """ Gets metadata for a single container.
+        """Gets metadata for a single container.
 
         Args:
             containerId: Container ID.
@@ -361,7 +379,9 @@ class DataFabricAPI(ApiBase):
                 f"HTTP/403 You do not have permission to view container {containerId}. Details:\n{data}"
             )
         elif resp.status == 404:
-            raise DataFabricError(f"HTTP/404 Data Fabric container {containerId} does not exist. Details:\n{data}")
+            raise DataFabricError(
+                f"HTTP/404 Data Fabric container {containerId} does not exist. Details:\n{data}"
+            )
         else:
             raise HTTPError(url, resp.status, await resp.text(), resp.headers, None)
 
@@ -377,8 +397,10 @@ class DataFabricAPI(ApiBase):
         best_index = my_accesses["level"].astype(float).idxmax()
         return my_accesses.loc[best_index]
 
-    async def get_accesses(self, containerId: AnyStr, pageNo: int = 1, pageSize: int = 50) -> Mapping[AnyStr, Any]:
-        """ Gets list of all available access specifications to a container.
+    async def get_accesses(
+        self, containerId: AnyStr, pageNo: int = 1, pageSize: int = 50
+    ) -> Mapping[AnyStr, Any]:
+        """Gets list of all available access specifications to a container.
 
         Reference:
             https://api-portal.veracity.com/docs/services/data-api/operations/v1-0Access_Get
@@ -433,9 +455,10 @@ class DataFabricAPI(ApiBase):
         data = await resp.json()
         return data
 
-    async def get_accesses_df(self, resourceId: AnyStr, pageNo: int = 1, pageSize: int = 50) -> pd.DataFrame:
-        """ Gets the access levels as a dataframe, including the "level" value.
-        """
+    async def get_accesses_df(
+        self, resourceId: AnyStr, pageNo: int = 1, pageSize: int = 50
+    ) -> pd.DataFrame:
+        """Gets the access levels as a dataframe, including the "level" value."""
         import pandas as pd
 
         data = await self.get_accesses(resourceId, pageNo, pageSize)
@@ -457,7 +480,7 @@ class DataFabricAPI(ApiBase):
         *args,
         **kwargs,
     ):
-        """ Shares container access with a user/application.
+        """Shares container access with a user/application.
 
         Args:
             containerId: Container ID to which to share access.
@@ -485,27 +508,39 @@ class DataFabricAPI(ApiBase):
         if startIp and endIp:
             payload["ipRange"] = {"startIp": startIp, "endIp": endIp}
 
-        resp = await self.session.post(url, json=payload, params={"autoRefreshed": str(autoRefreshed).lower()})
+        resp = await self.session.post(
+            url, json=payload, params={"autoRefreshed": str(autoRefreshed).lower()}
+        )
         data = await resp.json()
 
         if resp.status == 200:
             return data["accessSharingId"]
         elif resp.status == 400:
-            raise DataFabricError(f"HTTP/400 Malformed payload to share container access. Details:\n{data}")
+            raise DataFabricError(
+                f"HTTP/400 Malformed payload to share container access. Details:\n{data}"
+            )
         elif resp.status == 404:
-            raise DataFabricError(f"HTTP/404 Data Fabric container {containerId} does not exist. Details:\n{data}")
+            raise DataFabricError(
+                f"HTTP/404 Data Fabric container {containerId} does not exist. Details:\n{data}"
+            )
         else:
             raise HTTPError(url, resp.status, data, resp.headers, None)
 
     async def revoke_access(self, resourceId: AnyStr, accessId: AnyStr):
         raise NotImplementedError()
 
-    async def get_sas(self, resourceId: AnyStr, accessId: AnyStr = None, **kwargs) -> pd.DataFrame:
-        key = self.get_sas_cached(resourceId) or await self.get_sas_new(resourceId, accessId, **kwargs)
+    async def get_sas(
+        self, resourceId: AnyStr, accessId: AnyStr = None, **kwargs
+    ) -> pd.DataFrame:
+        key = self.get_sas_cached(resourceId) or await self.get_sas_new(
+            resourceId, accessId, **kwargs
+        )
         return key
 
-    async def get_sas_new(self, resourceId: AnyStr, accessId: AnyStr = None) -> Dict[str, Any]:
-        """ Gets a new SAS key to access a container.
+    async def get_sas_new(
+        self, resourceId: AnyStr, accessId: AnyStr = None
+    ) -> Dict[str, Any]:
+        """Gets a new SAS key to access a container.
 
         You can request a key with a specific access level (if you have the
         accessId).  By default this method will attempt to get the most
@@ -566,7 +601,7 @@ class DataFabricAPI(ApiBase):
             return None
 
     def _access_levels(self, accesses: pd.DataFrame) -> pd.Series:
-        """ Calculates an access "level" for each access in a dataframe.
+        """Calculates an access "level" for each access in a dataframe.
         In general higher access level means more privileges.
 
         Notes:
@@ -594,14 +629,16 @@ class DataFabricAPI(ApiBase):
         import numpy as np
 
         scores = np.array([4, 1, 8, 2])
-        attrs = accesses[["attribute1", "attribute2", "attribute3", "attribute4"]].to_numpy()
+        attrs = accesses[
+            ["attribute1", "attribute2", "attribute3", "attribute4"]
+        ].to_numpy()
         levels = (attrs * scores).sum(axis=1)
         return pd.Series(levels, index=accesses.index, dtype="Int64")
 
     # DATA STEWARDS.
 
     async def get_data_stewards(self, containerId: AnyStr) -> List[Dict[str, str]]:
-        """ Gets a list of data stewards on a container.
+        """Gets a list of data stewards on a container.
 
         Reference:
             https://api-portal.veracity.com/docs/services/data-api/operations/v1-0DataStewards_GetDataStewardsByResourceId
@@ -636,8 +673,10 @@ class DataFabricAPI(ApiBase):
     async def get_data_stewards_df(self, resourceId: AnyStr) -> pd.DataFrame:
         raise NotImplementedError()
 
-    async def delegate_data_steward(self, containerId: AnyStr, userId: AnyStr, comment: str) -> Dict[str, str]:
-        """ Delegates rights to the underlying Azure resource to a new data steward.
+    async def delegate_data_steward(
+        self, containerId: AnyStr, userId: AnyStr, comment: str
+    ) -> Dict[str, str]:
+        """Delegates rights to the underlying Azure resource to a new data steward.
 
         Reference:
             https://api-portal.veracity.com/docs/services/data-api/operations/v1-0DataStewards_Post
@@ -668,8 +707,7 @@ class DataFabricAPI(ApiBase):
         return data
 
     async def delete_data_steward(self, containerId: AnyStr, userId: AnyStr):
-        """ Removes a user as a container data steward.
-        """
+        """Removes a user as a container data steward."""
         url = f"{self._url}/resources/{containerId}/datastewards/{userId}"
         resp = await self.session.delete(url)
         if resp.status != 200:
@@ -685,13 +723,17 @@ class DataFabricAPI(ApiBase):
             else:
                 raise HTTPError(url, resp.status, data, resp.headers, None)
 
-    async def transfer_ownership(self, resourceId: AnyStr, userId: AnyStr, keepaccess: bool = False):
+    async def transfer_ownership(
+        self, resourceId: AnyStr, userId: AnyStr, keepaccess: bool = False
+    ):
         raise NotImplementedError()
 
     # TAGS.
 
-    async def get_tags(self, includeDeleted: bool = False, includeNonVeracityApproved: bool = False) -> Sequence:
-        """ Gets metadata tags.
+    async def get_tags(
+        self, includeDeleted: bool = False, includeNonVeracityApproved: bool = False
+    ) -> Sequence:
+        """Gets metadata tags.
 
         Args:
             includeDeleted: Also get deleted tags (requires data admin privileges.)
@@ -721,7 +763,7 @@ class DataFabricAPI(ApiBase):
             raise HTTPError(url, resp.status, await resp.text(), resp.headers, None)
 
     async def add_tags(self, tags: Sequence[str]):
-        """ Adds a list of tags to the Data Fabric.
+        """Adds a list of tags to the Data Fabric.
 
         Returns:
             A list of tags with their IDs like:
@@ -747,7 +789,7 @@ class DataFabricAPI(ApiBase):
     # USERS.
 
     async def get_shared_users(self, userId: AnyStr) -> List[Dict]:
-        """ Gets list of users with whom current user has shared storage account access.
+        """Gets list of users with whom current user has shared storage account access.
 
         Args:
             userId: User ID whose resource list to check.
@@ -758,7 +800,9 @@ class DataFabricAPI(ApiBase):
         if resp.status == 200:
             return data
         elif resp.status == 403:
-            raise DataFabricError("You do not have permission to view resource list for user {userId}.")
+            raise DataFabricError(
+                "You do not have permission to view resource list for user {userId}."
+            )
         else:
             raise HTTPError(url, resp.status, await resp.text(), resp.headers, None)
 
@@ -811,8 +855,7 @@ class DataFabricAPI(ApiBase):
     # CONTAINERS.
 
     async def get_container(self, containerId: AnyStr, **kwargs) -> ContainerClient:
-        """ Gets Veracity container client (using Azure Storage SDK.)
-        """
+        """Gets Veracity container client (using Azure Storage SDK.)"""
         sas = await self.get_sas(containerId, **kwargs)
         sasurl = sas["fullKey"]
         return ContainerClient.from_container_url(sasurl)

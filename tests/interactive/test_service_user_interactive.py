@@ -11,7 +11,9 @@ from veracity_platform import identity
 class TestUserAPI(object):
     @pytest.fixture(scope="class")
     def credential(self, CLIENT_ID, CLIENT_SECRET):
-        yield identity.InteractiveBrowserCredential(CLIENT_ID, client_secret=CLIENT_SECRET)
+        yield identity.InteractiveBrowserCredential(
+            CLIENT_ID, client_secret=CLIENT_SECRET
+        )
 
     @pytest.fixture()
     async def api(self, credential, SUBSCRIPTION_KEY):

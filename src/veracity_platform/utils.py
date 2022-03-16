@@ -18,4 +18,6 @@ def fix_aiohttp():
 
         return wrapper
 
-    _ProactorBasePipeTransport.__del__ = silence_event_loop_closed(_ProactorBasePipeTransport.__del__)
+    _ProactorBasePipeTransport.__del__ = silence_event_loop_closed(
+        _ProactorBasePipeTransport.__del__
+    )

@@ -73,7 +73,9 @@ def CONTAINER_ID(vault):
 
 @pytest.fixture(scope="session")
 def requires_secrets(request, CLIENT_ID, CLIENT_SECRET, SUBSCRIPTION_KEY):
-    missing_secrets = (CLIENT_ID is None) or (CLIENT_SECRET is None) or (SUBSCRIPTION_KEY is None)
+    missing_secrets = (
+        (CLIENT_ID is None) or (CLIENT_SECRET is None) or (SUBSCRIPTION_KEY is None)
+    )
     if missing_secrets:
         pytest.skip("Test environment variable(s) not set.")
 
@@ -91,7 +93,12 @@ def requires_datafabric(request, RESOURCE_URL, CONTAINER_ID):
 
 
 def pytest_addoption(parser):
-    parser.addoption("--interactive", action="store_true", default=False, help="Run tests requiring user interaction")
+    parser.addoption(
+        "--interactive",
+        action="store_true",
+        default=False,
+        help="Run tests requiring user interaction",
+    )
 
 
 def modify_interactive(config, items):

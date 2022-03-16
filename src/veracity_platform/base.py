@@ -21,7 +21,12 @@ class ApiBase(object):
             `identity.ALLOWED_SCOPES` for options.
     """
 
-    def __init__(self, credential: identity.Credential, subscription_key: AnyStr, scope: List[AnyStr]):
+    def __init__(
+        self,
+        credential: identity.Credential,
+        subscription_key: AnyStr,
+        scope: List[AnyStr],
+    ):
         self.credential = credential
         self.subscription_key = subscription_key
         # By default we ask for access permission the service and data fabric APIs.
@@ -54,7 +59,10 @@ class ApiBase(object):
         return self._headers
 
     async def connect(
-        self, reset: bool = False, credential: identity.Credential = None, key: AnyStr = None
+        self,
+        reset: bool = False,
+        credential: identity.Credential = None,
+        key: AnyStr = None,
     ) -> ClientSession:
         """ Create a single HTTP session to call the API.
         Optionally reset the existing session or change the credentials.
@@ -83,7 +91,9 @@ class ApiBase(object):
             token = self.credential.get_token(self.scopes)
             if "error" in token:
                 raise RuntimeError(f"Failed to get token:\n{token}")
-            assert "access_token" in token, "Token does not provide API access privileges for requested scopes."
+            assert (
+                "access_token" in token
+            ), "Token does not provide API access privileges for requested scopes."
             actual_token = token["access_token"]
             self._headers = {
                 "Ocp-Apim-Subscription-Key": self.subscription_key,
