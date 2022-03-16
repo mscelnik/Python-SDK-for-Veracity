@@ -54,7 +54,7 @@ DATAFABRIC_RESOURCE = "https://dnvglb2cprod.onmicrosoft.com/dfba9693-546d-4300-b
 USER_SCOPES = {
     "veracity": f"{SERVICE_API_SCOPE}/user_impersonation",
     "veracity_service": f"{SERVICE_API_SCOPE}/user_impersonation",
-    "veracity_datafabric": f"{DATAFABRIC_API_SCOPE}/user_impersonation",
+    "veracity_datafabric": f"{SERVICE_API_SCOPE}/user_impersonation",
 }
 
 CONF_SCOPES = {

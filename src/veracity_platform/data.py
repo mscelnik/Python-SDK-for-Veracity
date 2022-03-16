@@ -368,12 +368,12 @@ class DataFabricAPI(ApiBase):
     # ACCESS.
 
     async def get_best_access(self, containerId: AnyStr) -> pd.Series:
-        """ Gets the best available access share ID for a Veracity container.
+        """Gets the best available access share ID for a Veracity container.
         Returns the access share ID with the highest available privileges.
         """
-        app = await self.get_current_application()
-        all_accesses = await self.get_accesses_df(containerId)
-        my_accesses = all_accesses[all_accesses["userId"] == app["id"]]
+        me = await self.whoami()
+        all_accesses = await self.get_accesses_df(containerId, pageSize=-1)
+        my_accesses = all_accesses[all_accesses["userId"] == me["id"]]
         best_index = my_accesses["level"].astype(float).idxmax()
         return my_accesses.loc[best_index]
 
@@ -762,8 +762,13 @@ class DataFabricAPI(ApiBase):
         else:
             raise HTTPError(url, resp.status, await resp.text(), resp.headers, None)
 
-    async def get_current_user(self) -> Mapping:
-        raise NotImplementedError()
+    async def get_current_user(self) -> Mapping[str, str]:
+        url = f"{self._url}/users/me"
+        resp = await self.session.get(url)
+        if resp.status == 200:
+            return await resp.json()
+        else:
+            raise HTTPError(url, resp.status, await resp.text(), resp.headers, None)
 
     async def get_user(self, userId: AnyStr) -> Mapping:
         url = f"{self._url}/users/{userId}"
@@ -775,6 +780,33 @@ class DataFabricAPI(ApiBase):
             raise DataFabricError(f"User {userId} does not exist.")
         else:
             raise HTTPError(url, resp.status, await resp.text(), resp.headers, None)
+
+    async def whoami(self) -> Mapping[str, str]:
+        """User/application information (depending on token).
+
+        Returns:
+            A dictionary like:
+
+            .. code-block:: json
+
+               {
+                   "id": "user/app Veracity ID",
+                   "type": "entity type in (user, application)",
+                   "role": "Data Fabric role",
+                   "companyId": "ID of organization to which the user/app belongs"
+               }
+        """
+        try:
+            data = await self.get_current_user()
+            data["type"] = "user"
+            data["id"] = data["userId"]
+            data.pop("userId")
+        except HTTPError:
+            # Probably an application, not a user.
+            data = await self.get_current_application()
+            data["type"] = "application"
+
+        return data
 
     # CONTAINERS.
 
