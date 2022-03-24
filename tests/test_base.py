@@ -1,22 +1,22 @@
 """ Unit tests for shared components.
 """
 
+from unittest import mock
 import pytest
-from veracity_platform import base
+from veracity_platform import base, identity
 
 
 @pytest.fixture(scope="module")
-def credential(CLIENT_ID, CLIENT_SECRET):
-    from veracity_platform import identity
+def credential():
+    mockcred = mock.MagicMock(spec=identity.Credential)
+    mockcred.get_token.return_value = {"access_token": "MOCK_TOKEN"}
+    yield mockcred
 
-    yield identity.ClientSecretCredential(CLIENT_ID, CLIENT_SECRET)
 
-
-@pytest.mark.requires_secrets
 class TestApiBase(object):
     @pytest.mark.asyncio
-    async def test_connect(self, credential, SUBSCRIPTION_KEY):
-        api = base.ApiBase(credential, SUBSCRIPTION_KEY, scope="veracity_service")
+    async def test_connect(self, credential):
+        api = base.ApiBase(credential, "key", scope="veracity_service")
         assert api is not None
         try:
             await api.connect()
