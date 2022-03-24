@@ -68,9 +68,12 @@ class DataFabricAPI(ApiBase):
         url = f"{self._url}/application"
         resp = await self.session.get(url)
         data = await resp.json()
-        if resp.status != 200:
+        if resp.status == 200:
+            return data
+        elif resp.status == 404:
+            raise DataFabricError(f"Current application does not existing in the Data Fabric.")
+        else:
             raise HTTPError(url, resp.status, data, resp.headers, None)
-        return data
 
     async def get_application(self, applicationId: str) -> Dict[str, str]:
         """Gets information about an application in Veracity data fabric.

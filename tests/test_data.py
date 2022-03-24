@@ -27,14 +27,14 @@ def patch_response(session, method, status=200, text=b"", json=None):
 
 
 @pytest.fixture(scope="module")
-def credential(CLIENT_ID, CLIENT_SECRET, RESOURCE_URL):
+def credential():
     mockcred = mock.MagicMock(spec=identity.Credential)
     mockcred.get_token.return_value = {"access_token": ""}
     yield mockcred
 
 
-@pytest.mark.requires_secrets
-@pytest.mark.requires_datafabric
+# @pytest.mark.requires_secrets
+# @pytest.mark.requires_datafabric
 class TestDataFabricAPI(object):
     @pytest.fixture(scope="function")
     async def api(self, credential):
@@ -99,7 +99,13 @@ class TestDataFabricAPI(object):
     async def test_update_application_role(self, api):
         """ Update application role has no exceptions.
         """
-        await api.update_application_role()
+        response = {"id": 0}
+        with patch_response(api.session, "get", 200, json=response) as mockget:
+            data = await api.update_application_role("myapp", "myrole")
+            mockget.assert_called_with(
+                "https://api.veracity.com/veracity/datafabric/data/api/1/application/myapp?role=myrole"
+            )
+            assert data == response
 
     # GROUPS.
 
@@ -155,12 +161,14 @@ class TestDataFabricAPI(object):
             with pytest.raises(data.DataFabricError):
                 await api.get_group("0")
 
+    @pytest.mark.skip("Not implemented")
     @pytest.mark.asyncio
     async def test_update_group(self, api):
         """ Update group has no exceptions.
         """
         await api.update_group()
 
+    @pytest.mark.skip("Not implemented")
     @pytest.mark.asyncio
     async def test_delete_group(self, api):
         """ Delete group has no exceptions.
@@ -217,11 +225,12 @@ class TestDataFabricAPI(object):
 
     @pytest.mark.skip("Ledger has been discontinued")
     @pytest.mark.asyncio
-    async def test_ledger(self, api, CONTAINER_ID):
+    async def test_ledger(self, api):
         """ Get ledger from a demo container.
         """
-        data = await api.get_ledger(CONTAINER_ID)
-        assert data is not None
+        # data = await api.get_ledger(CONTAINER_ID)
+        # assert data is not None
+        pass
 
     # RESOURCES.
 
@@ -258,13 +267,33 @@ class TestDataFabricAPI(object):
     async def test_get_resource(self, api):
         """ Get resource has no exceptions.
         """
-        data = await api.get_resource()
-        assert data is not None
+        response = {
+            "id": "00000000-0000-0000-0000-000000000000",
+            "reference": "ref",
+            "url": "http://uri",
+            "lastModifiedUTC": "2020-01-01",
+            "creationDateTimeUTC": "2020-01-01",
+            "ownerId": "00000000-0000-0000-0000-000000000000",
+            "accessLevel": "owner",
+            "region": "2020-01-01",
+            "keyStatus": "noKeys",
+            "mayContainPersonalData": "unknown",
+            "metadata": {
+                "title": "title",
+                "description": "description",
+                "icon": {"id": "0", "backgroundColor": "red"},
+                "tags": [{"id": "00000000-0000-0000-0000-000000000000", "title": "title"}],
+            },
+        }
+        with patch_response(api.session, "get", 200, json=response) as mockget:
+            data = await api.get_resource("mycontainer")
+            mockget.assert_called_with("https://api.veracity.com/veracity/datafabric/data/api/1/resources/mycontainer")
+            assert data == response
 
     # ACCESSES.
 
     @pytest.mark.asyncio
-    async def test_get_accesses(self, api, CONTAINER_ID):
+    async def test_get_accesses(self, api):
         """ Get all access shares for a demo container.
         """
         response = {
@@ -349,7 +378,7 @@ class TestDataFabricAPI(object):
             assert data is None
 
     @pytest.mark.asyncio
-    async def test_sas_new(self, api, CONTAINER_ID):
+    async def test_sas_new(self, api):
         """ Get new SAS key given an access ID.
         """
         response = {
@@ -371,14 +400,17 @@ class TestDataFabricAPI(object):
             expected["accessId"] = "1"
             assert sas == expected
 
-    @pytest.mark.asyncio
-    async def test_sas_cached(self, api, CONTAINER_ID):
+    def test_sas_cached(self, api):
         """ Get new SAS key for a demo container.
         """
+        from datetime import datetime, timedelta, timezone
+
         # First ensure there is a SAS in the cache.
-        sasnew = await api.get_sas_new(CONTAINER_ID)
-        sas = api.get_sas_cached(CONTAINER_ID)
-        assert sas == sasnew
+        tomorrow = datetime.now(timezone.utc) + timedelta(days=1)
+        mock_cache = {"MyContainer": {"sasKeyExpiryTimeUTC": tomorrow.isoformat(), "isKeyExpired": False}}
+        with mock.patch.object(api, "sas_cache", new=mock_cache):
+            sas = api.get_sas_cached("MyContainer")
+            assert sas == mock_cache["MyContainer"]
 
     def test_access_level(self, api):
         import pandas as pd
@@ -410,6 +442,7 @@ class TestDataFabricAPI(object):
             )
             assert expected == data
 
+    @pytest.mark.skip("Not implemented")
     @pytest.mark.asyncio
     async def test_get_data_stewards_df(self, api):
         data = await api.get_data_stewards_df()
@@ -451,6 +484,7 @@ class TestDataFabricAPI(object):
             with pytest.raises(data.DataFabricError):
                 await api.delete_data_steward(1, 0)
 
+    @pytest.mark.skip("Not implemented")
     @pytest.mark.asyncio
     async def test_transfer_ownership(self, api):
         data = await api.transfer_ownership()
@@ -519,8 +553,10 @@ class TestDataFabricAPI(object):
 
     @pytest.mark.asyncio
     async def test_get_current_user(self, api):
-        data = await api.get_current_user()
-        assert data is not None
+        response = [{"userId": "00000000-0000-0000-0000-000000000000"}]
+        with patch_response(api.session, "get", 200, json=response) as mockget:
+            data = await api.get_current_user()
+            assert data == response
 
     @pytest.mark.asyncio
     async def test_get_user(self, api):
@@ -558,5 +594,12 @@ class TestDataFabricAPI(object):
 
     @pytest.mark.asyncio
     async def test_get_container(self, api):
-        data = await api.get_container()
-        assert data is not None
+        sas = {"fullKey": "mysaskey"}
+        with mock.patch.object(api, "get_sas", return_value=sas), mock.patch(
+            "veracity_platform.data.ContainerClient"
+        ) as mock_ContainerClient:
+            data = await api.get_container("MyContainer")
+
+            mock_from_container_url = mock_ContainerClient.from_container_url
+            mock_from_container_url.assert_called_with("mysaskey")
+            assert data == mock_from_container_url.return_value
