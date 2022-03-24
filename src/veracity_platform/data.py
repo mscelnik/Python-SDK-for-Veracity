@@ -71,7 +71,7 @@ class DataFabricAPI(ApiBase):
         if resp.status == 200:
             return data
         elif resp.status == 404:
-            raise DataFabricError(f"Current application does not existing in the Data Fabric.")
+            raise DataFabricError("Current application does not existing in the Data Fabric.")
         else:
             raise HTTPError(url, resp.status, data, resp.headers, None)
 
