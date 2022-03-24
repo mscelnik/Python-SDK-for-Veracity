@@ -1,0 +1,39 @@
+# Build the Python Veracity SDK Python wheel and save the artifact.
+
+trigger:
+  batch: true
+  branches:
+    include:
+      - main
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+- name: PYTHONPATH
+  value: src
+
+steps:
+- script: |
+    python -m pip install --upgrade pip
+    pip install -r requirements.txt
+    pip install wheel
+  displayName: 'Install build dependencies'
+
+- script: |
+    python setup.py bdist_wheel
+  displayName: 'Create wheel'
+
+- task: CopyFiles@2
+  inputs:
+    SourceFolder: '$(Build.SourcesDirectory)/dist'
+    Contents: '**/*.whl'
+    TargetFolder: '$(Build.ArtifactStagingDirectory)'
+  displayName: 'Copy wheel to staging directory'
+
+- task: PublishBuildArtifacts@1
+  inputs:
+    PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+    ArtifactName: 'veracity-platform'
+    publishLocation: 'Container'
+  displayName: 'Publish wheel as build artifact'

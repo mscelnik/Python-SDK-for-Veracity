@@ -1,0 +1,102 @@
+# Veracity SDK: publish latest release build to our private developer PyPI channel.
+
+# WARNING:
+#   Using a pipeline trigger doesn't work!  It does not trigger after the build
+#   step.  When it does run, it picks up the previous commit build.  Useless!
+#   To get around this, I have manually copied the build steps to this pipeline
+#   as another stage.
+#
+# resources:
+#   pipelines:
+#   - pipeline: builder
+#     source: veracity-python-sdk-build
+#     trigger:
+#       branches:
+#         include:
+#           - release
+
+trigger:
+  - release
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+stages:
+- stage: build
+  jobs:
+  - job: build
+    displayName: Build Python wheel
+    steps:
+    - script: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install wheel
+      displayName: 'Install build dependencies'
+
+    - script: |
+        python setup.py bdist_wheel
+      displayName: 'Create wheel'
+
+    - task: CopyFiles@2
+      inputs:
+        SourceFolder: '$(Build.SourcesDirectory)/dist'
+        Contents: '**/*.whl'
+        TargetFolder: '$(Build.ArtifactStagingDirectory)'
+      displayName: 'Copy wheel to staging directory'
+
+    - task: PublishBuildArtifacts@1
+      inputs:
+        PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+        ArtifactName: 'veracity-platform'
+        publishLocation: 'Container'
+      displayName: 'Publish wheel as build artifact'
+
+- stage: publish
+  jobs:
+  - job: tag
+    displayName: Tag commit with version number
+    steps:
+    - checkout: self
+      persistCredentials: true
+
+    - script: |
+        vers=$(python setup.py --version)
+        echo $vers
+        git config --global user.name "DevOps"
+        git config --global user.email "-"
+        git tag -a "v$vers" -m "Release version $vers"
+        git push origin --tags
+      displayName: 'Automatically tag the commit'
+
+  - deployment: publish
+    displayName: Publish Delirium to package feed
+    environment: Delirium
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - script: |
+              python -m pip install --upgrade pip
+              pip install twine
+            displayName: 'Install Twine'
+
+          - task: DownloadBuildArtifacts@1
+            inputs:
+              buildType: 'specific'
+              project: '4796d8de-4e72-4d8c-b8dc-5d451f6e7008'
+              pipeline: '5376'
+              buildVersionToDownload: 'latestFromBranch'
+              branchName: 'refs/heads/release'
+              downloadType: 'single'
+              artifactName: 'veracity-platform'
+              itemPattern: '**/*.whl'
+              downloadPath: '$(System.ArtifactsDirectory)'
+
+          - task: TwineAuthenticate@1
+            inputs:
+              artifactFeed: 'OGInnovation/DevPyPI'
+            displayName: 'Authenticate to artifact feed (twine)'
+
+          - script: |
+              twine upload -r DevPyPI --config-file $(PYPIRC_PATH) --skip-existing $(System.ArtifactsDirectory)/veracity-platform/*
+            displayName: 'Publish wheel to artifact feed'
