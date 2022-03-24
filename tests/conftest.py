@@ -35,7 +35,7 @@ def vault():
 def CLIENT_ID(vault):
     try:
         value = vault.get_secret("TestApp-ID").value
-    except (AttributeError, azure.core.exceptions.ClientAuthenticationError):
+    except (ValueError, AttributeError, azure.core.exceptions.ClientAuthenticationError):
         value = os.environ.get("TEST_VERACITY_CLIENT_ID")
     yield value
 
@@ -44,7 +44,7 @@ def CLIENT_ID(vault):
 def CLIENT_SECRET(vault):
     try:
         value = vault.get_secret("TestApp-Secret").value
-    except (AttributeError, azure.core.exceptions.ClientAuthenticationError):
+    except (ValueError, AttributeError, azure.core.exceptions.ClientAuthenticationError):
         value = os.environ.get("TEST_VERACITY_CLIENT_SECRET")
     yield value
 
@@ -53,7 +53,7 @@ def CLIENT_SECRET(vault):
 def SUBSCRIPTION_KEY(vault):
     try:
         value = vault.get_secret("TestApp-Sub").value
-    except (AttributeError, azure.core.exceptions.ClientAuthenticationError):
+    except (ValueError, AttributeError, azure.core.exceptions.ClientAuthenticationError):
         value = os.environ.get("TEST_VERACITY_SUBSCRIPTION_KEY")
     yield value
 
@@ -67,7 +67,7 @@ def RESOURCE_URL():
 def CONTAINER_ID(vault):
     try:
         value = vault.get_secret("Test-Container-ID").value
-    except (AttributeError, azure.core.exceptions.ClientAuthenticationError):
+    except (ValueError, AttributeError, azure.core.exceptions.ClientAuthenticationError):
         value = os.environ.get("TEST_CONTAINER_ID")
     yield value
 
