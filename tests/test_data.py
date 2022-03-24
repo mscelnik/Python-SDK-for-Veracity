@@ -29,7 +29,7 @@ def patch_response(session, method, status=200, text=b"", json=None):
 @pytest.fixture(scope="module")
 def credential():
     mockcred = mock.MagicMock(spec=identity.Credential)
-    mockcred.get_token.return_value = {"access_token": ""}
+    mockcred.get_token.return_value = {"access_token": "MOCK_TOKEN"}
     yield mockcred
 
 
