@@ -27,7 +27,7 @@ def vault():
     try:
         cred = azure.identity.DefaultAzureCredential()
         yield azure.keyvault.secrets.SecretClient(url, cred)
-    except (azure.core.exceptions.ClientAuthenticationError):
+    except (ValueError, azure.core.exceptions.ClientAuthenticationError):
         yield None
 
 
