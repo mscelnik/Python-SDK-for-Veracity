@@ -1,9 +1,6 @@
 """ Setup script for the Veracity Python SDK.
 """
 
-import sys
-import os
-import os.path
 from setuptools import setup
 
 __author__ = "DNV"
@@ -13,7 +10,7 @@ __maintainer__ = "Veracity Team"
 __email__ = "veracity@dnv.com"
 __url__ = "https://github.com/veracity/Python-SDK-for-Veracity"
 
-version = "0.0.3"
+version = "dev"
 
 if __name__ == "__main__":
     # Build a list of all files to be included in the Python package folder.
@@ -38,13 +35,7 @@ if __name__ == "__main__":
         packages=["veracity_platform"],
         package_dir={"": "src"},
         package_data=package_data,
-        install_requires=[
-            "aiohttp",
-            "msal",
-            "requests",
-            "azure-storage-blob",
-            "pandas",
-        ],
+        install_requires=["aiohttp", "msal", "requests", "azure-storage-blob", "pandas"],
         classifiers=[
             "Programming Language :: Python :: 3",
             "License :: OSI Approved :: MIT License",
