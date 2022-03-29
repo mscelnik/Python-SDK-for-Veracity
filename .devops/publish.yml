@@ -69,7 +69,7 @@ stages:
       displayName: 'Automatically tag the commit'
 
   - deployment: publish
-    displayName: Publish Delirium to package feed
+    displayName: Publish Veracity Python SDK to package feed
     environment: Delirium
     strategy:
       runOnce:
@@ -79,18 +79,6 @@ stages:
               python -m pip install --upgrade pip
               pip install twine
             displayName: 'Install Twine'
-
-          - task: DownloadBuildArtifacts@1
-            inputs:
-              buildType: 'specific'
-              project: '4796d8de-4e72-4d8c-b8dc-5d451f6e7008'
-              pipeline: '5376'
-              buildVersionToDownload: 'latestFromBranch'
-              branchName: 'refs/heads/release'
-              downloadType: 'single'
-              artifactName: 'veracity-platform'
-              itemPattern: '**/*.whl'
-              downloadPath: '$(System.ArtifactsDirectory)'
 
           - task: TwineAuthenticate@1
             inputs:
