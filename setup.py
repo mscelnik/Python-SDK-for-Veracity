@@ -10,7 +10,7 @@ __maintainer__ = "Veracity Team"
 __email__ = "veracity@dnv.com"
 __url__ = "https://github.com/veracity/Python-SDK-for-Veracity"
 
-version = "dev"
+version = "0.0.4"
 
 if __name__ == "__main__":
     # Build a list of all files to be included in the Python package folder.
