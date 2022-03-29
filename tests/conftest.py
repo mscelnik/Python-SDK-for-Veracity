@@ -7,13 +7,15 @@ store client IDs and secrets in the code.
 
 import os
 import pytest
+import azure.core.exceptions
+import azure.identity
+import azure.keyvault.secrets
+import pandas as pd
+from veracity_platform import utils
 
 
 @pytest.fixture(scope="session", autouse=True)
 def test_setup():
-    from veracity_platform import utils
-    import pandas as pd
-
     pd.options.display.max_columns = 10
     pd.options.display.max_rows = 100
     utils.fix_aiohttp()
@@ -21,38 +23,37 @@ def test_setup():
 
 @pytest.fixture(scope="session")
 def vault():
-    import azure.identity
-    import azure.keyvault.secrets
-
     url = os.environ.get("TEST_KEYVAULT_URL")
-    if url:
+    try:
         cred = azure.identity.DefaultAzureCredential()
         yield azure.keyvault.secrets.SecretClient(url, cred)
+    except (ValueError, azure.core.exceptions.ClientAuthenticationError):
+        yield None
 
 
 @pytest.fixture(scope="session")
 def CLIENT_ID(vault):
-    if vault:
+    try:
         value = vault.get_secret("TestApp-ID").value
-    else:
+    except (ValueError, AttributeError, azure.core.exceptions.ClientAuthenticationError):
         value = os.environ.get("TEST_VERACITY_CLIENT_ID")
     yield value
 
 
 @pytest.fixture(scope="session")
 def CLIENT_SECRET(vault):
-    if vault:
+    try:
         value = vault.get_secret("TestApp-Secret").value
-    else:
+    except (ValueError, AttributeError, azure.core.exceptions.ClientAuthenticationError):
         value = os.environ.get("TEST_VERACITY_CLIENT_SECRET")
     yield value
 
 
 @pytest.fixture(scope="session")
 def SUBSCRIPTION_KEY(vault):
-    if vault:
+    try:
         value = vault.get_secret("TestApp-Sub").value
-    else:
+    except (ValueError, AttributeError, azure.core.exceptions.ClientAuthenticationError):
         value = os.environ.get("TEST_VERACITY_SUBSCRIPTION_KEY")
     yield value
 
@@ -64,18 +65,16 @@ def RESOURCE_URL():
 
 @pytest.fixture(scope="session")
 def CONTAINER_ID(vault):
-    if vault:
+    try:
         value = vault.get_secret("Test-Container-ID").value
-    else:
+    except (ValueError, AttributeError, azure.core.exceptions.ClientAuthenticationError):
         value = os.environ.get("TEST_CONTAINER_ID")
     yield value
 
 
 @pytest.fixture(scope="session")
 def requires_secrets(request, CLIENT_ID, CLIENT_SECRET, SUBSCRIPTION_KEY):
-    missing_secrets = (
-        (CLIENT_ID is None) or (CLIENT_SECRET is None) or (SUBSCRIPTION_KEY is None)
-    )
+    missing_secrets = (CLIENT_ID is None) or (CLIENT_SECRET is None) or (SUBSCRIPTION_KEY is None)
     if missing_secrets:
         pytest.skip("Test environment variable(s) not set.")
 
@@ -94,10 +93,7 @@ def requires_datafabric(request, RESOURCE_URL, CONTAINER_ID):
 
 def pytest_addoption(parser):
     parser.addoption(
-        "--interactive",
-        action="store_true",
-        default=False,
-        help="Run tests requiring user interaction",
+        "--interactive", action="store_true", default=False, help="Run tests requiring user interaction",
     )
 
 

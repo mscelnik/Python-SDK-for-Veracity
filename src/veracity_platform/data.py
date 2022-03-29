@@ -33,17 +33,10 @@ class DataFabricAPI(ApiBase):
     API_ROOT = "https://api.veracity.com/veracity/datafabric"
 
     def __init__(
-        self,
-        credential: identity.Credential,
-        subscription_key: AnyStr,
-        version: AnyStr = None,
-        **kwargs,
+        self, credential: identity.Credential, subscription_key: AnyStr, version: AnyStr = None, **kwargs,
     ):
         super().__init__(
-            credential,
-            subscription_key,
-            scope=kwargs.pop("scope", "veracity_datafabric"),
-            **kwargs,
+            credential, subscription_key, scope=kwargs.pop("scope", "veracity_datafabric"), **kwargs,
         )
         self._url = f"{DataFabricAPI.API_ROOT}/data/api/1"
         self.sas_cache = {}
@@ -75,9 +68,12 @@ class DataFabricAPI(ApiBase):
         url = f"{self._url}/application"
         resp = await self.session.get(url)
         data = await resp.json()
-        if resp.status != 200:
+        if resp.status == 200:
+            return data
+        elif resp.status == 404:
+            raise DataFabricError("Current application does not existing in the Data Fabric.")
+        else:
             raise HTTPError(url, resp.status, data, resp.headers, None)
-        return data
 
     async def get_application(self, applicationId: str) -> Dict[str, str]:
         """Gets information about an application in Veracity data fabric.
@@ -168,11 +164,7 @@ class DataFabricAPI(ApiBase):
         return data
 
     async def add_group(
-        self,
-        title: str,
-        description: str,
-        containerIds: Sequence[str],
-        sortingOrder: float = 0.0,
+        self, title: str, description: str, containerIds: Sequence[str], sortingOrder: float = 0.0,
     ) -> Dict[str, Any]:
         """Creates a new container group for the user.
 
@@ -384,6 +376,13 @@ class DataFabricAPI(ApiBase):
     async def get_best_access(self, containerId: AnyStr) -> pd.Series:
         """Gets the best available access share ID for a Veracity container.
         Returns the access share ID with the highest available privileges.
+
+        Args:
+            containerId: Container ID.
+
+        Returns:
+            Pandas Series object with the best access specification if the user
+            has access, otherwise None.
         """
         from datetime import datetime, timezone
         import pandas as pd
@@ -396,9 +395,15 @@ class DataFabricAPI(ApiBase):
         mask = all_accesses["autoRefreshed"] | (expiry >= datetime.now(timezone.utc))
 
         # Accesses only for the current user/application.
-        mask = mask & all_accesses["userId"] == me["id"]
+        mask = mask & (all_accesses["userId"] == me["id"])
 
         my_accesses = all_accesses[mask]
+
+        if len(my_accesses) == 0:
+            # TODO: Is this the best thing to do?  Raise exception instead?
+            # User/application does not have permission to access the container.
+            return None
+
         best_index = my_accesses["level"].astype(float).idxmax()
         return my_accesses.loc[best_index]
 
