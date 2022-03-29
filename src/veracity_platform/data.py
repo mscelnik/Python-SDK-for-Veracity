@@ -384,13 +384,26 @@ class DataFabricAPI(ApiBase):
             Pandas Series object with the best access specification if the user
             has access, otherwise None.
         """
+        from datetime import datetime, timezone
+        import pandas as pd
+
         me = await self.whoami()
         all_accesses = await self.get_accesses_df(containerId, pageSize=-1)
-        my_accesses = all_accesses[all_accesses["userId"] == me["id"]]
+        expiry = pd.to_datetime(all_accesses["keyExpiryTimeUTC"])
+
+        # Remove keys which are expired and cannot be refreshed.
+        mask = all_accesses["autoRefreshed"] | (expiry >= datetime.now(timezone.utc))
+
+        # Accesses only for the current user/application.
+        mask = mask & (all_accesses["userId"] == me["id"])
+
+        my_accesses = all_accesses[mask]
+
         if len(my_accesses) == 0:
             # TODO: Is this the best thing to do?  Raise exception instead?
             # User/application does not have permission to access the container.
             return None
+
         best_index = my_accesses["level"].astype(float).idxmax()
         return my_accesses.loc[best_index]
 

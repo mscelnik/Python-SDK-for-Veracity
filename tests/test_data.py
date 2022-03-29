@@ -356,11 +356,25 @@ class TestDataFabricAPI(object):
         Note, we cannot test precisely the access because it depends on the
         test environment.
         """
+        from datetime import datetime, timedelta, timezone
+
+        # First ensure there is a SAS in the cache.
+        yesterday = datetime.now(timezone.utc) - timedelta(days=1)
+        tomorrow = datetime.now(timezone.utc) + timedelta(days=1)
+
         me = {"type": "user", "id": "0"}
         other_person = {"type": "user", "id": "NOTME"}
         nobody = {"type": "user", "id": "NOBODY"}
 
-        accesses = pd.DataFrame(columns=["userId", "level"], data=[["0", 1], ["NOTME", 2], ["0", 4], ["NOTME", 8]])
+        accesses = pd.DataFrame(
+            columns=["userId", "level", "keyExpiryTimeUTC", "autoRefreshed"],
+            data=[
+                ["0", 1, yesterday, True],
+                ["NOTME", 2, tomorrow, True],
+                ["0", 4, tomorrow, False],
+                ["NOTME", 8, tomorrow, False],
+            ],
+        )
 
         with mock.patch.object(api, "whoami", return_value=me) as mock_whoami, mock.patch.object(
             api, "get_accesses_df", return_value=accesses
