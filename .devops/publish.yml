@@ -86,5 +86,5 @@ stages:
             displayName: 'Authenticate to artifact feed (twine)'
 
           - script: |
-              twine upload -r DevPyPI --config-file $(PYPIRC_PATH) --skip-existing $(System.ArtifactsDirectory)/veracity-platform/*
+              twine upload -r DevPyPI --config-file $(PYPIRC_PATH) --skip-existing $(Build.ArtifactStagingDirectory)/veracity-platform/*
             displayName: 'Publish wheel to artifact feed'
