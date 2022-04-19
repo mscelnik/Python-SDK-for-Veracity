@@ -35,7 +35,7 @@ if __name__ == "__main__":
         packages=["veracity_platform"],
         package_dir={"": "src"},
         package_data=package_data,
-        install_requires=["aiohttp", "msal", "requests", "azure-storage-blob", "pandas"],
+        install_requires=["aiohttp", "msal", "requests", "azure-storage-blob", "pandas", "pyjwt"],
         classifiers=[
             "Programming Language :: Python :: 3",
             "License :: OSI Approved :: MIT License",

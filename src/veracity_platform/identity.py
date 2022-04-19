@@ -24,7 +24,8 @@ References:
 """
 
 from http.server import HTTPServer, BaseHTTPRequestHandler
-from typing import AnyStr, Dict, Sequence
+from typing import AnyStr, Dict, Sequence, Any
+from urllib.error import HTTPError
 import msal
 
 
@@ -35,6 +36,8 @@ DEFAULT_TENANT_ID = "dnvglb2cprod.onmicrosoft.com"
 DEFAULT_REPLY_URL = "http://localhost"
 DEFAULT_POLICY = "b2c_1a_signinwithadfsidp"
 
+VERACITY_SERVICE_ID = "83054ebf-1d7b-43f5-82ad-b2bde84d7b75"
+
 # The service API scope is sufficient for all Veracity APIs, so don't need the others.  This contradicts the
 # [documentation](https://developer.veracity.com/docs/section/identity/authentication/web-native#authenticating-a-user)
 # but seems to work.  Veracity scopes require suffixes before use:
@@ -44,20 +47,12 @@ DEFAULT_POLICY = "b2c_1a_signinwithadfsidp"
 #       'https://dnvglb2cprod.onmicrosoft.com/83054ebf-1d7b-43f5-82ad-b2bde84d7b75/user_impersonation
 
 # See https://developer.veracity.com/docs/section/identity/authentication/web-native#authenticating-a-user for API scopes.
-SERVICE_API_SCOPE = (
-    "https://dnvglb2cprod.onmicrosoft.com/83054ebf-1d7b-43f5-82ad-b2bde84d7b75"
-)
-DATAFABRIC_API_SCOPE = (
-    "https://dnvglb2cprod.onmicrosoft.com/37c59c8d-cd9d-4cd5-b05a-e67f1650ee14"
-)
+SERVICE_API_SCOPE = "https://dnvglb2cprod.onmicrosoft.com/83054ebf-1d7b-43f5-82ad-b2bde84d7b75"
+DATAFABRIC_API_SCOPE = "https://dnvglb2cprod.onmicrosoft.com/37c59c8d-cd9d-4cd5-b05a-e67f1650ee14"
 
 # See https://developer.veracity.com/docs/section/onboarding/clientv1 for resource URIs.
-SERVICE_RESOURCE = (
-    "https://dnvglb2cprod.onmicrosoft.com/dfc0f96d-1c85-4334-a600-703a89a32a4c"
-)
-DATAFABRIC_RESOURCE = (
-    "https://dnvglb2cprod.onmicrosoft.com/dfba9693-546d-4300-bcd7-d8d525bdff38"
-)
+SERVICE_RESOURCE = "https://dnvglb2cprod.onmicrosoft.com/dfc0f96d-1c85-4334-a600-703a89a32a4c"
+DATAFABRIC_RESOURCE = "https://dnvglb2cprod.onmicrosoft.com/dfba9693-546d-4300-bcd7-d8d525bdff38"
 
 USER_SCOPES = {
     "veracity": f"{SERVICE_API_SCOPE}/user_impersonation",
@@ -72,9 +67,7 @@ CONF_SCOPES = {
 }
 
 
-def expand_veracity_scopes(
-    scopes: Sequence[AnyStr], interactive: bool = False
-) -> Sequence[AnyStr]:
+def expand_veracity_scopes(scopes: Sequence[AnyStr], interactive: bool = False) -> Sequence[AnyStr]:
     """ Replaces Veracity short-hand scopes for actual scopes, scenario dependent.
 
     See :const:`USER_SCOPES` and :const:`CONF_SCOPES` for list of short-hand scopes.
@@ -99,6 +92,74 @@ def expand_veracity_scopes(
         allowed_scopes = CONF_SCOPES
 
     return [allowed_scopes.get(s, s) for s in scopes]
+
+
+def oauth_config() -> Dict[str, Any]:
+    """ Gets the Veracity oauth config from the internet as a dictionary.
+    """
+    import requests
+
+    url = f"{VERACITY_AUTHORITY_HOSTNAME}/{DEFAULT_TENANT_ID}/v2.0/.well-known/openid-configuration?p={DEFAULT_POLICY}"
+    response = requests.get(url)
+    if response.status_code != 200:
+        raise HTTPError(url, response.status_code, response.text, response.headers, None)
+    return response.json()
+
+
+def verify_token(token: str, audience: Sequence[str] = None) -> Dict[str, Any]:
+    """ Verifies a JWT access token with the Veracity authority.
+
+    Use this method to validate/verify incoming tokens to your application.  Do
+    not use it to validate tokens you get from the Veracity authority directly;
+    those will be verified by Veracity.
+
+    This method uses the pyjwt package.  It verifies:
+        - The token signature (using the Veracity oauth public keys)
+        - The audience is correct (if provided)
+        - The issuer authority is Veracity.
+        - The token is not expired.
+
+    References:
+        - https://developer.veracity.com/docs/section/identity/authentication/api#validating-the-access-token
+        - https://auth0.com/docs/secure/tokens/access-tokens/validate-access-tokens#json-web-token-jwt-access-tokens
+        - https://docs.microsoft.com/en-us/azure/active-directory/develop/access-tokens#validating-the-signature
+        - https://jwt.io/
+        - https://pyjwt.readthedocs.io/en/stable/api.html#jwt.decode
+
+    Args:
+        token: The encoded JWT to verify.
+        audience: IDs of the audiences (application IDs) for this token.  By
+            default this method does not verify the audience.
+
+    Returns:
+        The JWT claims (same as `jwt.decode`).
+
+    Raises:
+        Exception if token validation failed.
+    """
+    import requests
+    import jwt
+
+    # Get the oauth config for the Veracity authority.
+    config = oauth_config()
+
+    # Get the Veracity keys.
+    keys_url = config["jwks_uri"]
+    response = requests.get(keys_url)
+    if response.status_code != 200:
+        raise HTTPError(keys_url, response.status_code, response.text, response.headers, None)
+    key_data = response.json()
+
+    # Get the key used by the token.
+    jwk_set = jwt.PyJWKSet(key_data["keys"])
+    header = jwt.get_unverified_header(token)
+    jwk = next(filter(lambda jwk: jwk.key_id == header["kid"], jwk_set.keys))
+
+    # Verify the token by decoding it.
+    aud = audience
+    iss = config["issuer"]
+    options = {"verify_signature": True, "verify_aud": audience is not None}
+    return jwt.decode(token, jwk.key, algorithms=["RS256"], options=options, audience=aud, issuer=iss)
 
 
 class IdentityError(Exception):
@@ -140,22 +201,25 @@ class InteractiveBrowserCredential(Credential):
     """
 
     def __init__(
-        self,
-        client_id: AnyStr,
-        redirect_uri: AnyStr = "http://localhost",
-        client_secret: AnyStr = None,
+        self, client_id: AnyStr, redirect_uri: AnyStr = "http://localhost", client_secret: AnyStr = None,
     ):
-        app = msal.ConfidentialClientApplication(
-            client_id=client_id,
-            client_credential=client_secret,
-            authority=f"{VERACITY_AUTHORITY_HOSTNAME}/{DEFAULT_TENANT_ID}/{DEFAULT_POLICY}",
-        )
+        if client_secret:
+            app = msal.ConfidentialClientApplication(
+                client_id=client_id,
+                client_credential=client_secret,
+                authority=f"{VERACITY_AUTHORITY_HOSTNAME}/{DEFAULT_TENANT_ID}/{DEFAULT_POLICY}",
+            )
+        else:
+            app = msal.PublicClientApplication(
+                client_id=client_id,
+                client_credential=client_secret,
+                authority=f"{VERACITY_AUTHORITY_HOSTNAME}/{DEFAULT_TENANT_ID}/{DEFAULT_POLICY}",
+            )
+
         super().__init__(app)
         self.redirect_uri = redirect_uri
 
-    def get_token(
-        self, scopes: Sequence[AnyStr], timeout: int = 30
-    ) -> Dict[AnyStr, AnyStr]:
+    def get_token(self, scopes: Sequence[AnyStr], timeout: int = 30) -> Dict[AnyStr, AnyStr]:
         """ Get a user token interactively using the webbrowser.
 
         Internally this uses auth-code-flow to retrieve the token.  It creates a
@@ -176,30 +240,22 @@ class InteractiveBrowserCredential(Credential):
         # Start an HTTP server to receive the redirect.
         server = self._make_server(self.redirect_uri, timeout=timeout)
         if not server:
-            raise IdentityError(
-                "Could not start an HTTP server for interactive credential."
-            )
+            raise IdentityError("Could not start an HTTP server for interactive credential.")
 
         clean_scopes = expand_veracity_scopes(scopes, interactive=True)
-        flow = self.service.initiate_auth_code_flow(
-            clean_scopes, redirect_uri=self.redirect_uri
-        )
+        flow = self.service.initiate_auth_code_flow(clean_scopes, redirect_uri=self.redirect_uri)
 
         # Open system default browser to auth url.
         auth_url = flow["auth_uri"]
         if not webbrowser.open(auth_url):
-            raise IdentityError(
-                "Failed to open system web browser for interactive credential."
-            )
+            raise IdentityError("Failed to open system web browser for interactive credential.")
 
         # Block until the server times out or receives the post-authentication redirect.  Then
         # we check the response for possible errors.
         response = server.wait_for_redirect()
 
         if not response:
-            raise IdentityError(
-                f"Timed out after waiting {timeout} seconds for the user to authenticate."
-            )
+            raise IdentityError(f"Timed out after waiting {timeout} seconds for the user to authenticate.")
 
         if "error" in response:
             err = response.get("error_description") or response["error"]
@@ -238,11 +294,7 @@ class ClientSecretCredential(Credential):
     """
 
     def __init__(
-        self,
-        client_id: AnyStr,
-        client_secret: AnyStr,
-        resource: AnyStr = None,
-        **kwargs,
+        self, client_id: AnyStr, client_secret: AnyStr, resource: AnyStr = None, **kwargs,
     ):
         # If we want to use client/secret auth we need to use the v1 endpoints.
         app = msal.ConfidentialClientApplication(
@@ -279,9 +331,7 @@ class DeviceCodeCredential(Credential):
 
 class UsernamePasswordCredential(Credential):
     def __init__(self):
-        raise NotImplementedError(
-            "Why are you storing user passwords? Use InteractiveBrowserCredential instead!"
-        )
+        raise NotImplementedError("Why are you storing user passwords? Use InteractiveBrowserCredential instead!")
 
 
 class AuthCodeRedirectHandler(BaseHTTPRequestHandler):
@@ -306,17 +356,13 @@ class AuthCodeRedirectHandler(BaseHTTPRequestHandler):
             return
 
         # Take only the first of each parameter.
-        self.server.query_params = {
-            key: value[0] for key, value in parse_qs(urlbits.query).items()
-        }
+        self.server.query_params = {key: value[0] for key, value in parse_qs(urlbits.query).items()}
 
         # If there are query params, tell the user we have finished.
         self.send_response(200)
         self.send_header("Content-Type", "text/html")
         self.end_headers()
-        self.wfile.write(
-            b"Veracity authentication complete. You can close this window."
-        )
+        self.wfile.write(b"Veracity authentication complete. You can close this window.")
 
     def log_message(self, format, *args):
         pass  # this prevents server dumping messages to stdout
@@ -364,13 +410,8 @@ class AuthCodeRedirectServer(HTTPServer):
         self.server_close()
 
 
-def get_datafabric_token(
-    client_id: AnyStr, client_secret: AnyStr
-) -> Dict[AnyStr, AnyStr]:
+def get_datafabric_token(client_id: AnyStr, client_secret: AnyStr) -> Dict[AnyStr, AnyStr]:
     """ Quickly get an access token for the Veracity Data Fabric.
     """
-    RESOURCE = (
-        "https://dnvglb2cprod.onmicrosoft.com/dfba9693-546d-4300-bcd7-d8d525bdff38"
-    )
     cred = ClientSecretCredential(client_id=client_id, client_secret=client_secret)
     return cred.get_token(scopes=["veracity_datafabric"])
