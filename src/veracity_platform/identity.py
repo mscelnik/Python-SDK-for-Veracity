@@ -156,10 +156,8 @@ def verify_token(token: str, audience: Sequence[str] = None) -> Dict[str, Any]:
     jwk = next(filter(lambda jwk: jwk.key_id == header["kid"], jwk_set.keys))
 
     # Verify the token by decoding it.
-    aud = audience
-    iss = config["issuer"]
     options = {"verify_signature": True, "verify_aud": audience is not None}
-    return jwt.decode(token, jwk.key, algorithms=["RS256"], options=options, audience=aud, issuer=iss)
+    return jwt.decode(token, jwk.key, algorithms=["RS256"], options=options, audience=audience, issuer=config["issuer"])
 
 
 class IdentityError(Exception):
