@@ -1,10 +1,4 @@
-""" Integration (API call) tests for the data fabric API.
-
-Prerequisites:
-
-    - Registered client credential app at developer.veracity.com.
-    - Access to a test data container in the Veracity data fabric.
-    - Set up an Azure key vault or environment variables (see README).
+""" Unit tests for the data fabric API.
 """
 
 from contextlib import contextmanager

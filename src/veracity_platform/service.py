@@ -27,10 +27,7 @@ class UserAPI(ApiBase):
 
     def __init__(self, credential, subscription_key, version="v3", **kwargs):
         super().__init__(
-            credential,
-            subscription_key,
-            scope=kwargs.pop("scope", "veracity_service"),
-            **kwargs,
+            credential, subscription_key, scope=kwargs.pop("scope", "veracity_service"), **kwargs,
         )
         self._url = f"{UserAPI.API_ROOT}/{version}/my"
 
@@ -148,10 +145,7 @@ class ClientAPI(ApiBase):
 
     def __init__(self, credential, subscription_key, version="v3", **kwargs):
         super().__init__(
-            credential,
-            subscription_key,
-            scope=kwargs.pop("scope", "veracity_service"),
-            **kwargs,
+            credential, subscription_key, scope=kwargs.pop("scope", "veracity_service"), **kwargs,
         )
         self._url = f"{ClientAPI.API_ROOT}/{version}/this"
 
@@ -163,16 +157,7 @@ class ClientAPI(ApiBase):
         raise NotImplementedError()
 
     async def post_notification(
-        self,
-        name,
-        content,
-        id_,
-        timeStamp,
-        recipients,
-        serviceId,
-        channelId=None,
-        type_=0,
-        highPriority=False,
+        self, name, content, id_, timeStamp, recipients, serviceId, channelId=None, type_=0, highPriority=False,
     ):
         raise NotImplementedError()
 
@@ -203,4 +188,24 @@ class ClientAPI(ApiBase):
         raise NotImplementedError()
 
     async def get_user_from_email(self, email):
-        raise NotImplementedError()
+        url = self.url.replace("/this", "/directory/users/by/email")
+        params = {"email": email}
+        resp = await self.session.get(url, params=params)
+        if resp.status == 200:
+            data = await resp.json()
+            return data
+        elif resp.status == 404:
+            return None
+        else:
+            raise HTTPError(url, resp.status, await resp.text(), resp.headers, None)
+
+    async def resolve_user(self, email):
+        url = url = f"{self.url}/user/resolve({email})"
+        resp = await self.session.get(url)
+        if resp.status == 200:
+            data = await resp.json()
+            return data
+        elif resp.status == 404:
+            return None
+        else:
+            raise HTTPError(url, resp.status, await resp.text(), resp.headers, None)
