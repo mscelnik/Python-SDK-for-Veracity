@@ -15,9 +15,7 @@ class UserAPI(ApiBase):
     received, usually JSON.
 
     Arguments:
-        credential (veracity.Credential): Provides oauth access tokens for the
-            API (the user has to log in to retrieve these unless your client
-            application has permissions to use the service.)
+        credential: Oauth access token or the token provider (identity.Credential).
         subscription_key (str): Your application's API subscription key.  Gets
             sent in th Ocp-Apim-Subscription-Key header.
         version (str): Must be "v3" - other API versions not yet supported.
@@ -133,9 +131,7 @@ class ClientAPI(ApiBase):
     received, usually JSON.
 
     Arguments:
-        credential (veracity.Credential): Provides oauth access tokens for the
-            API (the user has to log in to retrieve these unless your client
-            application has permissions to use the service.)
+        credential: Oauth access token or the token provider (identity.Credential).
         subscription_key (str): Your application's API subscription key.  Gets
             sent in th Ocp-Apim-Subscription-Key header.
         version (str): Must be "v3" - other API versions not yet supported.

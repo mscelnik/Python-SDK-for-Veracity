@@ -1,7 +1,7 @@
 """ Base components for the Veracity SDK.
 """
 
-from typing import AnyStr, Dict, List
+from typing import AnyStr, Dict, List, Union
 from aiohttp import ClientSession
 from . import identity
 
@@ -22,10 +22,7 @@ class ApiBase(object):
     """
 
     def __init__(
-        self,
-        credential: identity.Credential,
-        subscription_key: AnyStr,
-        scope: List[AnyStr],
+        self, credential: Union[identity.Credential, str], subscription_key: AnyStr, scope: List[AnyStr],
     ):
         self.credential = credential
         self.subscription_key = subscription_key
@@ -59,19 +56,15 @@ class ApiBase(object):
         return self._headers
 
     async def connect(
-        self,
-        reset: bool = False,
-        credential: identity.Credential = None,
-        key: AnyStr = None,
+        self, reset: bool = False, credential: Union[str, identity.Credential] = None, key: AnyStr = None,
     ) -> ClientSession:
         """ Create a single HTTP session to call the API.
         Optionally reset the existing session or change the credentials.
 
         Args:
-            reset (bool): Set True to force HTTP session to reconnect.
-            credential (veracity.Credential): Provides oauth access tokens for the
-                API (the user has to log in to retrieve these unless your client
-                application has permissions to use the service.)
+            reset: Set True to force HTTP session to reconnect.
+            credential: Either a credential object which provides oauth access tokens or
+                the access_token as a string (if you have acquired it some other way.)
             subscription_key (str): Your application's API subscription key.  Gets
                 sent in th Ocp-Apim-Subscription-Key header.
         """
@@ -88,13 +81,14 @@ class ApiBase(object):
             reset_headers = True
 
         if reset_headers:
-            token = self.credential.get_token(self.scopes)
-            if "error" in token:
-                raise RuntimeError(f"Failed to get token:\n{token}")
-            assert (
-                "access_token" in token
-            ), "Token does not provide API access privileges for requested scopes."
-            actual_token = token["access_token"]
+            if isinstance(self.credential, identity.Credential):
+                token = self.credential.get_token(self.scopes)
+                if "error" in token:
+                    raise RuntimeError(f"Failed to get token:\n{token}")
+                assert "access_token" in token, "Token does not provide API access privileges for requested scopes."
+                actual_token = token["access_token"]
+            else:
+                actual_token = self.credential
             self._headers = {
                 "Ocp-Apim-Subscription-Key": self.subscription_key,
                 "Authorization": f"Bearer {actual_token}",

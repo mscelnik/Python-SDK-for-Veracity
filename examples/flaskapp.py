@@ -19,7 +19,9 @@ import os
 from flask import Flask, request, redirect, session, url_for
 
 # from flask_session import Session
-from veracity_platform.identity import IdentityService
+from veracity_platform.identity import InteractiveBrowserCredential, verify_token, expand_veracity_scopes
+from veracity_platform.service import UserAPI
+
 
 app = Flask(__name__)
 app.secret_key = "mytopsecretkey"  # Used by Flask to secure the session data.
@@ -36,20 +38,24 @@ CLIENT_ID = os.environ.get("EXAMPLE_VERACITY_CLIENT_ID")
 CLIENT_SECRET = os.environ.get("EXAMPLE_VERACITY_CLIENT_SECRET")
 SUBSCRIPTION_KEY = os.environ.get("EXAMPLE_VERACITY_SUBSCRIPTION_KEY")
 REDIRECT_URI = "http://localhost/login"
-SCOPES = ["veracity"]
-
-id_service = IdentityService(CLIENT_ID, REDIRECT_URI, client_secret=CLIENT_SECRET)
+SCOPES = expand_veracity_scopes(["veracity"], interactive=True)
 
 
 @app.route("/", methods=["get"])
-def index():
-    """ Will start authentication flow by redirecting to Veracity IDP.
+async def index():
+    """ Root endpoint for the application
+
+    Will start authentication flow by redirecting to Veracity IDP if user not
+    validated.
     """
     if not validate_user(session):
         print("Not logged in")
         return redirect(url_for("login"))
 
-    profile = get_user_profile(session)
+    access_token = session.get("access_token")
+    async with UserAPI(access_token, SUBSCRIPTION_KEY) as user_api:
+        profile = await user_api.get_profile()
+
     return profile
 
 
@@ -62,18 +68,24 @@ def login():
     to the Veracity login page.  The Veracity login process will redirect back
     to this route (see REDIRECT_URI) with the auth 'code' as a query parameter.
     """
+
+    # We use a interactive-browser credential to authenticate the user.  However, we
+    # don't use the credential to generate a token directly, because it uses its
+    # own webserver.  As this app handles its own web requests, we will use the
+    # credential's service attribute (which is a msal.ConfidentialClientApplication
+    # behind the scenes.) to perform auth-code flow.
+    credential = InteractiveBrowserCredential(CLIENT_ID, client_secret=CLIENT_SECRET)
+
     if "code" in request.args:
         flow = session.pop("flow", {})
-        result = id_service.acquire_token_by_auth_code_flow(flow, request.args)
+        result = credential.service.acquire_token_by_auth_code_flow(flow, request.args)
         if "error" not in result:
             session["id_token"] = result.get("id_token")
             session["access_token"] = result.get("access_token")
             return redirect(url_for("index"))
 
     # No auth code or token acquisition failed.  Redirect to Veracity login.
-    session["flow"] = id_service.initiate_auth_code_flow(
-        SCOPES, redirect_uri=REDIRECT_URI
-    )
+    session["flow"] = credential.service.initiate_auth_code_flow(SCOPES, redirect_uri=REDIRECT_URI)
     response = redirect(session["flow"]["auth_uri"])
     return response
 
@@ -81,31 +93,13 @@ def login():
 def validate_user(session):
     try:
         token = session.get("id_token")
-        jwt_content = id_service.validate_token(token)
-        session["username"] = jwt_content.get("name")
+        jwt_verification = verify_token(token, audience=[CLIENT_ID])
+        session["username"] = jwt_verification.get("name")
     except Exception as err:
         print(err)
         return False
     print("User token is valid.")
     return True
-
-
-def get_user_profile(session):
-    """ Queries user profile from Veracity service API.
-    """
-    import requests
-
-    access_token = session.get("access_token", {})
-    url = "https://api.veracity.com/veracity/services/v3/my/profile"
-    headers = {
-        "Authorization": f"Bearer {access_token}",
-        "Ocp-Apim-Subscription-Key": SUBSCRIPTION_KEY,
-    }
-    response = requests.get(url, headers=headers)
-    if response.status_code == 200:
-        return response.json()
-    else:
-        return "Failed to get profile!"
 
 
 if __name__ == "__main__":
