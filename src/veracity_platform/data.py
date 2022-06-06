@@ -237,11 +237,35 @@ class DataFabricAPI(ApiBase):
         else:
             raise HTTPError(url, resp.status, data, resp.headers, None)
 
-    async def update_group(self, groupId, *args, **kwargs):
-        raise NotImplementedError()
+    async def update_group(
+        self, groupId: str, title: str, description: str, containerIds: List[str], sortingOrder: float
+    ):
+        url = f"{self._url}/groups/{groupId}"
+        body = {
+            "title": title,
+            "description": description,
+            "resourceIds": list(containerIds),
+            "sortingOrder": sortingOrder,
+        }
+        resp = await self.session.put(url, body)
+        data = await resp.json()
+        if resp.status == 200:
+            return
+        elif resp.status == 404:
+            raise DataFabricError(f"Group {groupId} does not exist for current user.")
+        else:
+            raise HTTPError(url, resp.status, data, resp.headers, None)
 
     async def delete_group(self, groupId):
-        raise NotImplementedError()
+        url = f"{self._url}/groups/{groupId}"
+        resp = await self.session.delete(url)
+        data = await resp.json()
+        if resp.status == 204:
+            return
+        elif resp.status == 404:
+            raise DataFabricError(f"Group {groupId} does not exist for current user.")
+        else:
+            raise HTTPError(url, resp.status, data, resp.headers, None)
 
     # KEY TEMPLATES.
 
@@ -481,8 +505,6 @@ class DataFabricAPI(ApiBase):
         comment: AnyStr = None,
         startIp: AnyStr = None,
         endIp: AnyStr = None,
-        *args,
-        **kwargs,
     ):
         """Shares container access with a user/application.
 
@@ -524,8 +546,18 @@ class DataFabricAPI(ApiBase):
         else:
             raise HTTPError(url, resp.status, data, resp.headers, None)
 
-    async def revoke_access(self, resourceId: AnyStr, accessId: AnyStr):
-        raise NotImplementedError()
+    async def revoke_access(self, containerId: AnyStr, accessId: AnyStr):
+        url = f"{self._url}/resources/{containerId}/accesses/{accessId}"
+        resp = await self.session.put(url)
+        if resp.status == 200:
+            return
+        elif resp.status == 403:
+            raise DataFabricError(f"HTTP/403 User is not the owner or data steward.")
+        elif resp.status == 404:
+            raise DataFabricError(f"HTTP/404 Data Fabric container {containerId} does not exist.")
+        else:
+            data = await resp.json()
+            raise HTTPError(url, resp.status, data, resp.headers, None)
 
     async def get_sas(self, resourceId: AnyStr, accessId: AnyStr = None, **kwargs) -> pd.DataFrame:
         key = self.get_sas_cached(resourceId) or await self.get_sas_new(resourceId, accessId, **kwargs)
@@ -660,8 +692,9 @@ class DataFabricAPI(ApiBase):
         else:
             raise HTTPError(url, resp.status, data, resp.headers, None)
 
-    async def get_data_stewards_df(self, resourceId: AnyStr) -> pd.DataFrame:
-        raise NotImplementedError()
+    async def get_data_stewards_df(self, containerId: AnyStr) -> pd.DataFrame:
+        data = self.get_data_stewards(containerId)
+        return pd.DataFrame(data)
 
     async def delegate_data_steward(self, containerId: AnyStr, userId: AnyStr, comment: str) -> Dict[str, str]:
         """Delegates rights to the underlying Azure resource to a new data steward.
@@ -711,8 +744,30 @@ class DataFabricAPI(ApiBase):
             else:
                 raise HTTPError(url, resp.status, data, resp.headers, None)
 
-    async def transfer_ownership(self, resourceId: AnyStr, userId: AnyStr, keepaccess: bool = False):
-        raise NotImplementedError()
+    async def transfer_ownership(self, containerId: AnyStr, userId: AnyStr, keepAccess: bool = False) -> Dict[str, Any]:
+        """ Transfers container ownership to another user.
+
+        Requirements:
+            - The current user must be the container owner
+            - THe new user must have "Data Manager" role in Veracity.
+
+        Args:
+            containerId: GUID of the container.
+            userId: GUID of the new container owner.
+            keepAccess: Should current owner remain a data steward?
+
+        Returns:
+            Container metadata showing new owner.
+        """
+        url = f"{self._url}/resources/{containerId}/owner"
+        resp = await self.session.put(
+            url, params={"userId": userId, "keepAccessAsDataSteward": str(keepAccess).lower()}
+        )
+        data = await resp.json()
+        if resp.status == 200:
+            return data
+        else:
+            raise HTTPError(url, resp.status, data, resp.headers, None)
 
     # TAGS.
 
