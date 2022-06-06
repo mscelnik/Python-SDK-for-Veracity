@@ -10,24 +10,21 @@ Notes:
 
 import os
 import requests
-from veracity_platform.identity import InteractiveBrowserCredential
+from veracity_platform.identity import InteractiveBrowserCredential, verify_token
 
 
 CLIENT_ID = os.environ.get("TEST_CONF_APP_ID")
-# TODO: Secret should not be necessary for user-auth flow, but Veracity IDP doesn't work without it.
 CLIENT_SECRET = os.environ.get("TEST_CONF_APP_SECRET")
 SUBSCRIPTION_KEY = os.environ.get("TEST_CONF_APP_SUB")
 REDIRECT_URI = "http://localhost/login"
 
-cred = InteractiveBrowserCredential(
-    CLIENT_ID, REDIRECT_URI, client_secret=CLIENT_SECRET
-)
+cred = InteractiveBrowserCredential(CLIENT_ID, REDIRECT_URI, client_secret=CLIENT_SECRET)
 scopes = ["veracity"]
-# scopes = ['https://dnvglb2cprod.onmicrosoft.com/83054ebf-1d7b-43f5-82ad-b2bde84d7b75/user_impersonation']
 token = cred.get_token(scopes=scopes, timeout=30)
 print(f"Veracity API token:\n{token}\n\n")
 assert "access_token" in token
 
+print(verify_token(token["access_token"]))
 
 # Use the token to get some information from Veracity API.
 url = "https://api.veracity.com/veracity/datafabric/data/api/1/resources"

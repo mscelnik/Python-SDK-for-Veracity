@@ -38,7 +38,7 @@ CLIENT_ID = os.environ.get("EXAMPLE_VERACITY_CLIENT_ID")
 CLIENT_SECRET = os.environ.get("EXAMPLE_VERACITY_CLIENT_SECRET")
 SUBSCRIPTION_KEY = os.environ.get("EXAMPLE_VERACITY_SUBSCRIPTION_KEY")
 REDIRECT_URI = "http://localhost/login"
-SCOPES = expand_veracity_scopes(["veracity"], interactive=True)
+SCOPES = ["veracity"]
 
 
 @app.route("/", methods=["get"])
@@ -74,18 +74,18 @@ def login():
     # own webserver.  As this app handles its own web requests, we will use the
     # credential's service attribute (which is a msal.ConfidentialClientApplication
     # behind the scenes.) to perform auth-code flow.
-    credential = InteractiveBrowserCredential(CLIENT_ID, client_secret=CLIENT_SECRET)
+    credential = InteractiveBrowserCredential(CLIENT_ID, client_secret=CLIENT_SECRET, redirect_uri=REDIRECT_URI)
 
     if "code" in request.args:
         flow = session.pop("flow", {})
-        result = credential.service.acquire_token_by_auth_code_flow(flow, request.args)
+        result = credential.acquire_token_by_auth_code_flow(flow, request.args)
         if "error" not in result:
             session["id_token"] = result.get("id_token")
             session["access_token"] = result.get("access_token")
             return redirect(url_for("index"))
 
     # No auth code or token acquisition failed.  Redirect to Veracity login.
-    session["flow"] = credential.service.initiate_auth_code_flow(SCOPES, redirect_uri=REDIRECT_URI)
+    session["flow"] = credential.initiate_auth_code_flow(SCOPES)
     response = redirect(session["flow"]["auth_uri"])
     return response
 
