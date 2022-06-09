@@ -238,7 +238,7 @@ class DataFabricAPI(ApiBase):
             raise HTTPError(url, resp.status, data, resp.headers, None)
 
     async def update_group(
-        self, groupId: str, title: str, description: str, containerIds: List[str], sortingOrder: float
+        self, groupId: str, title: str, description: str, containerIds: List[str], sortingOrder: float = 0.0
     ):
         url = f"{self._url}/groups/{groupId}"
         body = {
@@ -672,14 +672,12 @@ class DataFabricAPI(ApiBase):
             A list of data stewards, each a dictionary like:
 
             .. code-block:: json
-                [
                 {
                     "userId": "00000000-0000-0000-0000-000000000000",
                     "resourceId": "00000000-0000-0000-0000-000000000000",
                     "grantedBy": "00000000-0000-0000-0000-000000000000",
                     "comment": "string"
                 }
-                ]
 
         """
         url = f"{self._url}/resources/{containerId}/datastewards"

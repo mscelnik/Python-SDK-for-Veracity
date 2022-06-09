@@ -405,7 +405,7 @@ class TestDataFabricAPI(object):
                 json={"userId": "1", "accessKeyTemplateId": "2"},
                 params={"autoRefreshed": "true"},
             )
-            assert data == response
+            assert data == "00000000-0000-0000-0000-000000000000"
 
     @pytest.mark.asyncio
     async def test_revoke_access_200(self, api):
@@ -482,10 +482,11 @@ class TestDataFabricAPI(object):
     async def test_get_data_stewards_df(self, api):
         import pandas as pd
 
+        response = [{"userId": "0", "resourceId": "1", "grantedBy": "2", "comment": "my comment"}]
         expected = pd.DataFrame(
             columns=["UserId", "resourceId", "grantedBy", "comment"], data=[["0", "1", "2", "my comment"]],
         )
-        with patch_response(api.session, "get", 200, json=expected) as mockget:
+        with patch_response(api.session, "get", 200, json=response) as mockget:
             data = await api.get_data_stewards_df("1")
             mockget.assert_called_with(
                 "https://api.veracity.com/veracity/datafabric/data/api/1/resources/1/datastewards"
@@ -532,7 +533,7 @@ class TestDataFabricAPI(object):
     async def test_transfer_ownership(self, api):
         response = {}
         with patch_response(api.session, "put", 200, json=response) as mockput:
-            await api.transfer_ownership(1, 0, True)
+            await api.transfer_ownership("1", "0", True)
             mockput.assert_called_with(
                 "https://api.veracity.com/veracity/datafabric/data/api/1/resources/1/owner",
                 params={"userId": "0", "keepAccessAsDataSteward": "true"},

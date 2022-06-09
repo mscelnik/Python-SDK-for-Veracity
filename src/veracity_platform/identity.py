@@ -175,6 +175,12 @@ class Credential(object):
     def __init__(self, service):
         self.service = service
 
+    @property
+    def interactive(self):
+        """ Is this credential interactive; does it require user input?
+        """
+        return isinstance(self.service, msal.PublicClientApplication)
+
     def get_token(self, scopes: Sequence[AnyStr], **kwargs) -> Dict[AnyStr, AnyStr]:
         raise NotImplementedError("Do not use base class directly.")
 
