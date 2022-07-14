@@ -515,3 +515,12 @@ class DirectoryAPI(ApiBase):
         https://api-portal.veracity.com/docs/services/veracity-myservices%20V3/operations/5db14425acc4d910fcde88c1?
         """
         raise NotImplementedError()
+
+
+# ALIASES
+
+# TODO: Make "AppAPI" the class name above.
+AppAPI = ClientAPI
+
+MeAPI = UserAPI
+ThisAPI = ClientAPI
