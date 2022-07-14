@@ -894,3 +894,155 @@ class DataFabricAPI(ApiBase):
         sas = await self.get_sas(containerId, **kwargs)
         sasurl = sas["fullKey"]
         return ContainerClient.from_container_url(sasurl)
+
+
+class ProvisionAPI(ApiBase):
+    """Access to the data fabric provisioning API (/datafabric/provisioning) in Veracity.
+
+
+    All web calls are async using aiohttp.  Returns web responses exactly as
+    received, usually JSON.
+
+    Arguments:
+        credential: Oauth access token or the token provider (identity.Credential).
+        subscription_key (str): Your application's API subscription key.  Gets
+            sent in th Ocp-Apim-Subscription-Key header.
+        version (str): Not currently used.
+    """
+
+    API_ROOT = "https://api.veracity.com/veracity/datafabric"
+
+    def __init__(
+        self, credential: identity.Credential, subscription_key: AnyStr, version: AnyStr = None, **kwargs,
+    ):
+        super().__init__(
+            credential, subscription_key, scope=kwargs.pop("scope", "veracity_datafabric"), **kwargs,
+        )
+        self._url = f"{DataFabricAPI.API_ROOT}/provisioning/api/1"
+        self.sas_cache = {}
+        self.access_cache = {}
+
+    @property
+    def url(self) -> str:
+        return self._url
+
+    async def create_container(
+        self, shortName, title, description: str = "", region: str = "westeurope", tags: List[str] = []
+    ) -> str:
+        """Creates a new blob container in the data fabric.
+
+        Reference:
+            https://api-portal.veracity.com/docs/services/5a72f224978c230c4c13aadb/operations/v1-0Container_ProvisionAzureBlobContainer?
+
+        Returns:
+            GUID of the created container.
+        """
+        url = f"{self._url}/container"
+        body = {
+            "storageLocation": region,
+            "containerShortName": shortName,
+            "mayContainPersonalData": False,
+            "title": title,
+            "description": description,
+            "icon": {"id": "Automatic_Information_Display", "backgroundColor": "#5594aa"},
+            "tags": [{"title": tag, "type": "userTag"} for tag in tags],
+        }
+        resp = await self.session.post(url, body)
+        data = await resp.json()
+        if resp.status == 202:
+            return data
+        else:
+            raise HTTPError(url, resp.status, data, resp.headers, None)
+
+    async def copy_container(self, *args, **kwargs):
+        """ Copies a given Container with its content with access sharing ID.
+
+        Reference:
+            https://api-portal.veracity.com/docs/services/5a72f224978c230c4c13aadb/operations/v1-0Container_CopyContainer?
+
+        Returns:
+            GUID of the new (copy) container ID.
+        """
+        # body = {
+        #     "sourceResourceId": "00000000-0000-0000-0000-000000000000",
+        #     "groupId": "00000000-0000-0000-0000-000000000000",
+        #     "copyResourceShortName": "string",
+        #     "copyResourceMayContainPersonalData": True,
+        #     "copyResourceTitle": "string",
+        #     "copyResourceDescription": "string",
+        #     "copyResourceIcon": {
+        #         "id": "string",
+        #         "backgroundColor": "string"
+        #     },
+        #     "copyResourceTags": [
+        #         {
+        #         "title": "string",
+        #         "type": "userTag"
+        #         }
+        #     ],
+        # }
+        raise NotImplementedError()
+
+    async def delete_container(self, *args, **kwargs):
+        """ Deletes a blob container.
+
+        Reference:
+            https://api-portal.veracity.com/docs/services/5a72f224978c230c4c13aadb/operations/v1-0Container_DeleteAzureBlobContainer?
+        """
+        raise NotImplementedError()
+
+    # EVENT SUBSCRIPTIONS.
+
+    async def create_event_subscription(self, *args, **kwargs):
+        """ Provision a callback for custom events.
+
+        Call back url and subscription name Subscription name must be unique
+        through the entire application.
+
+        Reference:
+            https://api-portal.veracity.com/docs/services/5a72f224978c230c4c13aadb/operations/v1-0Container_SubscribeToCustomEvents?
+
+        """
+        raise NotImplementedError()
+
+    async def delete_event_subscription(self, *args, **kwargs):
+        """ Delete a callback for custom events.
+
+        Reference:
+            https://api-portal.veracity.com/docs/services/5a72f224978c230c4c13aadb/operations/v1-0Container_UnsubscribeFromAzureBlobContainerEvents?
+        """
+        raise NotImplementedError()
+
+    async def create_blob_change_subscription(self, *args, **kwargs):
+        """ Provision a callback for blob change events.
+
+        Reference:
+            https://api-portal.veracity.com/docs/services/5a72f224978c230c4c13aadb/operations/v1-0Container_SubscribeToAzureBlobContainerEvents?
+        """
+        raise NotImplementedError()
+
+    async def delete_blob_change_subscription(self, *args, **kwargs):
+        """ Delete a callback for blob change events.
+
+        Reference:
+            https://api-portal.veracity.com/docs/services/5a72f224978c230c4c13aadb/operations/v1-0Container_UnsubscribeFromCustomEvents?
+        """
+        raise NotImplementedError()
+
+    # UTILITIES.
+
+    async def list_regions(self):
+        """ Lists active Azure regions in which you can provision containers.
+
+        Reference:
+            https://api-portal.veracity.com/docs/services/5a72f224978c230c4c13aadb/operations/v1-0Regions_Get?
+        """
+        raise NotImplementedError()
+
+    async def update_metadata(self):
+        """ Patch a container's metadata.
+
+        Reference:
+            https://api-portal.veracity.com/docs/services/5a72f224978c230c4c13aadb/operations/v1-0Container_UpdateMetadata?
+        """
+        raise NotImplementedError()
