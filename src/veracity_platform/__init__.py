@@ -5,5 +5,5 @@ from . import data
 from . import iot
 from . import utils
 
-from .data import DataFabricAPI
+from .data import DataFabricAPI, ProvisionAPI
 from .service import UserAPI, AppAPI, DirectoryAPI
