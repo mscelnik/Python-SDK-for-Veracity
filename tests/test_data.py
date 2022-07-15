@@ -355,6 +355,48 @@ class TestDataFabricAPI(object):
             )
 
     @pytest.mark.asyncio
+    async def test_get_accesses_df_nodata(self, api):
+        """ Returns empty dataframe ok if no accesses.
+        """
+        response = {
+            "results": [],
+            "page": 0,
+            "resultsPerPage": 0,
+            "totalPages": 0,
+            "totalResults": 0,
+        }
+
+        expected = pd.DataFrame(
+            columns=[
+                "userId",
+                "ownerId",
+                "grantedById",
+                "accessSharingId",
+                "keyCreated",
+                "autoRefreshed",
+                "keyCreatedTimeUTC",
+                "keyExpiryTimeUTC",
+                "resourceType",
+                "accessHours",
+                "accessKeyTemplateId",
+                "attribute1",
+                "attribute2",
+                "attribute3",
+                "attribute4",
+                "resourceId",
+                "startIp",
+                "endIp",
+                "comment",
+                "level",
+            ]
+        )
+        with patch_response(api.session, "get", 200, json=response) as mockget:
+            result = await api.get_accesses_df("1")
+            print(result)
+            assert result is not None
+            pdt.assert_frame_equal(expected, result, check_dtype=False)
+
+    @pytest.mark.asyncio
     async def test_get_best_access(self, api):
         """ Get an access share ID for a demo container.
         Note, we cannot test precisely the access because it depends on the
@@ -484,7 +526,7 @@ class TestDataFabricAPI(object):
 
         response = [{"userId": "0", "resourceId": "1", "grantedBy": "2", "comment": "my comment"}]
         expected = pd.DataFrame(
-            columns=["UserId", "resourceId", "grantedBy", "comment"], data=[["0", "1", "2", "my comment"]],
+            columns=["userId", "resourceId", "grantedBy", "comment"], data=[["0", "1", "2", "my comment"]],
         )
         with patch_response(api.session, "get", 200, json=response) as mockget:
             data = await api.get_data_stewards_df("1")

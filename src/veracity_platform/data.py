@@ -486,11 +486,46 @@ class DataFabricAPI(ApiBase):
         return data
 
     async def get_accesses_df(self, resourceId: AnyStr, pageNo: int = 1, pageSize: int = 50) -> pd.DataFrame:
-        """Gets the access levels as a dataframe, including the "level" value."""
+        """Gets the access levels as a dataframe, including the "level" value.
+
+        Ensure the data frame has the correct columns, even if no accesses exist.
+        """
         import pandas as pd
 
         data = await self.get_accesses(resourceId, pageNo, pageSize)
-        df = pd.DataFrame(data["results"])
+        results = data["results"]
+
+        # Expand non-null IP ranges.
+        for result in results:
+            if result["ipRange"] is not None:
+                result["startIp"] = result["ipRange"]["startIp"]
+                result["endIp"] = result["ipRange"]["startIp"]
+
+        # Convert to data frame, ensuring correct columns.
+        df = pd.DataFrame(results)
+        ACCESS_COLUMNS = [
+            "userId",
+            "ownerId",
+            "grantedById",
+            "accessSharingId",
+            "keyCreated",
+            "autoRefreshed",
+            "keyCreatedTimeUTC",
+            "keyExpiryTimeUTC",
+            "resourceType",
+            "accessHours",
+            "accessKeyTemplateId",
+            "attribute1",
+            "attribute2",
+            "attribute3",
+            "attribute4",
+            "resourceId",
+            "startIp",
+            "endIp",
+            "comment",
+        ]
+        df = df.reindex(columns=ACCESS_COLUMNS)
+
         # Add the level values for future use.
         df["level"] = self._access_levels(df)
         self.access_cache[resourceId] = df
