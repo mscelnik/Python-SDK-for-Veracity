@@ -726,8 +726,8 @@ class DataFabricAPI(ApiBase):
             raise HTTPError(url, resp.status, data, resp.headers, None)
 
     async def get_data_stewards_df(self, containerId: AnyStr) -> pd.DataFrame:
-        data = self.get_data_stewards(containerId)
-        return pd.DataFrame(data)
+        data = await self.get_data_stewards(containerId)
+        return pd.DataFrame(data, columns=["userId", "resourceId", "grantedBy", "comment"])
 
     async def delegate_data_steward(self, containerId: AnyStr, userId: AnyStr, comment: str) -> Dict[str, str]:
         """Delegates rights to the underlying Azure resource to a new data steward.

@@ -533,7 +533,7 @@ class TestDataFabricAPI(object):
             mockget.assert_called_with(
                 "https://api.veracity.com/veracity/datafabric/data/api/1/resources/1/datastewards"
             )
-            assert expected == data
+            pdt.assert_frame_equal(expected, data, check_dtype=False)
 
     @pytest.mark.asyncio
     async def test_delegate_data_steward(self, api):
