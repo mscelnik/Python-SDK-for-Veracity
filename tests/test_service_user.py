@@ -47,15 +47,17 @@ class TestUserAPI(object):
     async def test_get_messages(self, api):
         with patch_response(api.session, "get", 200, json={"id": 0}) as mockget:
             data = await api.get_messages()
-            mockget.assert_called_with("https://api.veracity.com/veracity/services/v3/my/messages")
+            mockget.assert_called_with(
+                "https://api.veracity.com/veracity/services/v3/my/messages", params={"all": False}
+            )
             assert data == {"id": 0}
 
     @pytest.mark.asyncio
     async def test_get_message_count(self, api):
-        with patch_response(api.session, "get", 200, json={"id": 0}) as mockget:
+        with patch_response(api.session, "get", 200, text="0") as mockget:
             data = await api.get_message_count()
             mockget.assert_called_with("https://api.veracity.com/veracity/services/v3/my/messages")
-            assert data == {"id": 0}
+            assert data == 0
 
     @pytest.mark.asyncio
     async def test_get_message(self, api):
@@ -64,24 +66,34 @@ class TestUserAPI(object):
             mockget.assert_called_with("https://api.veracity.com/veracity/services/v3/my/messages/0")
             assert data == {"id": 0}
 
+    @pytest.mark.skip("Not implemented")
     @pytest.mark.asyncio
-    async def test_validate_policies(self, api):
+    async def test_mark_messages_read(self, api):
         with patch_response(api.session, "get", 200, json={"id": 0}) as mockget:
-            data = await api.validate_policies()
-            mockget.assert_called_with("https://api.veracity.com/veracity/services/v3/my/policies/validate()")
+            data = await api.mark_messages_read(1)
+            mockget.assert_called_with(
+                "https://api.veracity.com/veracity/services/v3/this/", params={"page": 1, "pageSize": 10}
+            )
             assert data == {"id": 0}
 
     @pytest.mark.asyncio
+    async def test_validate_policies(self, api):
+        with patch_response(api.session, "get", 204) as mockget:
+            data = await api.validate_policies()
+            mockget.assert_called_with("https://api.veracity.com/veracity/services/v3/my/policies/validate()")
+            assert data == (True, [])
+
+    @pytest.mark.asyncio
     async def test_validate_service_policy(self, api):
-        with patch_response(api.session, "get", 200, json={"id": 0}) as mockget:
+        with patch_response(api.session, "get", 204) as mockget:
             data = await api.validate_service_policy("0")
-            mockget.assert_called_with("https://api.veracity.com/veracity/services/v3/my/policy/0/validate()")
-            assert data == {"id": 0}
+            mockget.assert_called_with("https://api.veracity.com/veracity/services/v3/my/policies/0/validate()")
+            assert data == (True, [])
 
     @pytest.mark.asyncio
     async def test_get_profile(self, api):
         with patch_response(api.session, "get", 200, json={"id": 0}) as mockget:
-            data = await api.get_profile(0)
+            data = await api.get_profile()
             mockget.assert_called_with("https://api.veracity.com/veracity/services/v3/my/profile")
             assert data == {"id": 0}
 
@@ -97,4 +109,14 @@ class TestUserAPI(object):
         with patch_response(api.session, "get", 200, json={"id": 0}) as mockget:
             data = await api.get_widgets()
             mockget.assert_called_with("https://api.veracity.com/veracity/services/v3/my/widgets")
+            assert data == {"id": 0}
+
+    @pytest.mark.skip("Not implemented")
+    @pytest.mark.asyncio
+    async def test_get_picture(self, api):
+        with patch_response(api.session, "get", 200, json={"id": 0}) as mockget:
+            data = await api.get_picture(1)
+            mockget.assert_called_with(
+                "https://api.veracity.com/veracity/services/v3/this/", params={"page": 1, "pageSize": 10}
+            )
             assert data == {"id": 0}

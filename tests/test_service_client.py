@@ -38,6 +38,7 @@ class TestClientAPI(object):
 
     # SERVICES.
 
+    @pytest.mark.skip("Not implemented")
     @pytest.mark.asyncio
     async def test_get_services(self, api):
         with patch_response(api.session, "get", 200, json={"id": 0}) as mockget:
@@ -47,6 +48,7 @@ class TestClientAPI(object):
             )
             assert data == {"id": 0}
 
+    @pytest.mark.skip("Not implemented")
     @pytest.mark.asyncio
     async def test_post_notification(self, api):
         from datetime import datetime
@@ -59,6 +61,7 @@ class TestClientAPI(object):
             )
             assert data == {"id": 0}
 
+    @pytest.mark.skip("Not implemented")
     @pytest.mark.asyncio
     async def test_get_subscribers(self, api):
         with patch_response(api.session, "get", 200, json={"id": 0}) as mockget:
@@ -68,6 +71,7 @@ class TestClientAPI(object):
             )
             assert data == {"id": 0}
 
+    @pytest.mark.skip("Not implemented")
     @pytest.mark.asyncio
     async def test_get_subscriber(self, api):
         with patch_response(api.session, "get", 200, json={"id": 0}) as mockget:
@@ -77,6 +81,7 @@ class TestClientAPI(object):
             )
             assert data == {"id": 0}
 
+    @pytest.mark.skip("Not implemented")
     @pytest.mark.asyncio
     async def test_add_subscriber(self, api):
         with patch_response(api.session, "get", 200, json={"id": 0}) as mockget:
@@ -86,6 +91,7 @@ class TestClientAPI(object):
             )
             assert data == {"id": 0}
 
+    @pytest.mark.skip("Not implemented")
     @pytest.mark.asyncio
     async def test_remove_subscriber(self, api):
         with patch_response(api.session, "get", 200, json={"id": 0}) as mockget:
@@ -97,6 +103,7 @@ class TestClientAPI(object):
 
     # USER DIRECTORY.
 
+    @pytest.mark.skip("Not implemented")
     @pytest.mark.asyncio
     async def test_create_user(self, api):
         with patch_response(api.session, "get", 200, json={"id": 0}) as mockget:
@@ -106,35 +113,15 @@ class TestClientAPI(object):
             )
             assert data == {"id": 0}
 
+    @pytest.mark.skip("Not implemented")
     @pytest.mark.asyncio
-    async def test_get_user_from_email(self, api):
-        """ Get user by email address has no exceptions.
-        """
+    async def test_create_users(self, api):
         with patch_response(api.session, "get", 200, json={"id": 0}) as mockget:
-            data = await api.get_user_from_email("a@a.com")
+            data = await api.create_users(1)
             mockget.assert_called_with(
-                "https://api.veracity.com/veracity/services/v3/directory/users/by/email", params={"email": "a@a.com"}
+                "https://api.veracity.com/veracity/services/v3/this/", params={"page": 1, "pageSize": 10}
             )
             assert data == {"id": 0}
-
-    @pytest.mark.asyncio
-    async def test_get_user_from_email_404(self, api):
-        """ Get user by email address returns None if invalid email.
-        """
-        with patch_response(api.session, "get", 404, json={"id": 0}) as mockget:
-            data = await api.get_user_from_email("a@a.com")
-            mockget.assert_called_with(
-                "https://api.veracity.com/veracity/services/v3/directory/users/by/email", params={"email": "a@a.com"}
-            )
-            assert data is None
-
-    @pytest.mark.asyncio
-    async def test_get_user_from_email_500(self, api):
-        """ Get user by email address raises exception upon HTTP error other than 404.
-        """
-        with patch_response(api.session, "get", 500):
-            with pytest.raises(HTTPError):
-                await api.get_user_from_email("a@a.com")
 
     @pytest.mark.asyncio
     async def test_resolve_user(self, api):
@@ -142,7 +129,7 @@ class TestClientAPI(object):
         """
         with patch_response(api.session, "get", 200, json={"id": 0}) as mockget:
             data = await api.resolve_user("a@a.com")
-            mockget.assert_called_with("https://api.veracity.com/veracity/services/v3/user/resolve(a@a.com)")
+            mockget.assert_called_with("https://api.veracity.com/veracity/services/v3/this/user/resolve(a@a.com)")
             assert data == {"id": 0}
 
     @pytest.mark.asyncio
@@ -151,7 +138,7 @@ class TestClientAPI(object):
         """
         with patch_response(api.session, "get", 404, json={"id": 0}) as mockget:
             data = await api.resolve_user("a@a.com")
-            mockget.assert_called_with("https://api.veracity.com/veracity/services/v3/user/resolve(a@a.com)")
+            mockget.assert_called_with("https://api.veracity.com/veracity/services/v3/this/user/resolve(a@a.com)")
             assert data is None
 
     @pytest.mark.asyncio
@@ -161,3 +148,33 @@ class TestClientAPI(object):
         with patch_response(api.session, "get", 500):
             with pytest.raises(HTTPError):
                 await api.resolve_user("a@a.com")
+
+    @pytest.mark.skip("Not implemented")
+    @pytest.mark.asyncio
+    async def test_get_user_picture(self, api):
+        with patch_response(api.session, "get", 200, json={"id": 0}) as mockget:
+            data = await api.get_user_picture(1)
+            mockget.assert_called_with(
+                "https://api.veracity.com/veracity/services/v3/this/", params={"page": 1, "pageSize": 10}
+            )
+            assert data == {"id": 0}
+
+    @pytest.mark.skip("Not implemented")
+    @pytest.mark.asyncio
+    async def test_notify_users(self, api):
+        with patch_response(api.session, "get", 200, json={"id": 0}) as mockget:
+            data = await api.notify_users(1)
+            mockget.assert_called_with(
+                "https://api.veracity.com/veracity/services/v3/this/", params={"page": 1, "pageSize": 10}
+            )
+            assert data == {"id": 0}
+
+    @pytest.mark.skip("Not implemented")
+    @pytest.mark.asyncio
+    async def test_verify_policy(self, api):
+        with patch_response(api.session, "get", 200, json={"id": 0}) as mockget:
+            data = await api.verify_policy(1)
+            mockget.assert_called_with(
+                "https://api.veracity.com/veracity/services/v3/this/", params={"page": 1, "pageSize": 10}
+            )
+            assert data == {"id": 0}

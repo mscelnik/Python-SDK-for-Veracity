@@ -38,6 +38,7 @@ class TestDirectoryAPI(object):
 
     # COMPANY DIRECTORY.
 
+    @pytest.mark.skip("Not implemented")
     @pytest.mark.asyncio
     async def test_get_company(self, api):
         with patch_response(api.session, "get", 200, json={"id": 0}) as mockget:
@@ -47,6 +48,7 @@ class TestDirectoryAPI(object):
             )
             assert data == {"id": 0}
 
+    @pytest.mark.skip("Not implemented")
     @pytest.mark.asyncio
     async def test_get_company_users(self, api):
         with patch_response(api.session, "get", 200, json={"id": 0}) as mockget:
@@ -58,6 +60,7 @@ class TestDirectoryAPI(object):
 
     # SERVICE DIRECTORY.
 
+    @pytest.mark.skip("Not implemented")
     @pytest.mark.asyncio
     async def test_get_service(self, api):
         with patch_response(api.session, "get", 200, json={"id": 0}) as mockget:
@@ -67,6 +70,7 @@ class TestDirectoryAPI(object):
             )
             assert data == {"id": 0}
 
+    @pytest.mark.skip("Not implemented")
     @pytest.mark.asyncio
     async def test_get_service_users(self, api):
         with patch_response(api.session, "get", 200, json={"id": 0}) as mockget:
@@ -76,6 +80,7 @@ class TestDirectoryAPI(object):
             )
             assert data == {"id": 0}
 
+    @pytest.mark.skip("Not implemented")
     @pytest.mark.asyncio
     async def test_is_service_admin(self, api):
         with patch_response(api.session, "get", 200, json={"id": 0}) as mockget:
@@ -85,6 +90,7 @@ class TestDirectoryAPI(object):
             )
             assert data == {"id": 0}
 
+    @pytest.mark.skip("Not implemented")
     @pytest.mark.asyncio
     async def test_get_service_status(self, api):
         with patch_response(api.session, "get", 200, json={"id": 0}) as mockget:
@@ -94,6 +100,7 @@ class TestDirectoryAPI(object):
             )
             assert data == {"id": 0}
 
+    @pytest.mark.skip("Not implemented")
     @pytest.mark.asyncio
     async def test_data_containers(self, api):
         with patch_response(api.session, "get", 200, json={"id": 0}) as mockget:
@@ -103,6 +110,7 @@ class TestDirectoryAPI(object):
             )
             assert data == {"id": 0}
 
+    @pytest.mark.skip("Not implemented")
     @pytest.mark.asyncio
     async def test_create_data_container_reference(self, api):
         with patch_response(api.session, "get", 200, json={"id": 0}) as mockget:
@@ -112,6 +120,7 @@ class TestDirectoryAPI(object):
             )
             assert data == {"id": 0}
 
+    @pytest.mark.skip("Not implemented")
     @pytest.mark.asyncio
     async def test_delete_data_container_reference(self, api):
         with patch_response(api.session, "get", 200, json={"id": 0}) as mockget:
@@ -123,6 +132,7 @@ class TestDirectoryAPI(object):
 
     # USER DIRECTORY.
 
+    @pytest.mark.skip("Not implemented")
     @pytest.mark.asyncio
     async def test_accept_terms(self, api):
         with patch_response(api.session, "get", 200, json={"id": 0}) as mockget:
@@ -132,6 +142,7 @@ class TestDirectoryAPI(object):
             )
             assert data == {"id": 0}
 
+    @pytest.mark.skip("Not implemented")
     @pytest.mark.asyncio
     async def test_activate_account(self, api):
         with patch_response(api.session, "get", 200, json={"id": 0}) as mockget:
@@ -141,6 +152,7 @@ class TestDirectoryAPI(object):
             )
             assert data == {"id": 0}
 
+    @pytest.mark.skip("Not implemented")
     @pytest.mark.asyncio
     async def test_delete_user(self, api):
         with patch_response(api.session, "get", 200, json={"id": 0}) as mockget:
@@ -150,6 +162,7 @@ class TestDirectoryAPI(object):
             )
             assert data == {"id": 0}
 
+    @pytest.mark.skip("Not implemented")
     @pytest.mark.asyncio
     async def test_exchange_otp_code(self, api):
         with patch_response(api.session, "get", 200, json={"id": 0}) as mockget:
@@ -159,6 +172,7 @@ class TestDirectoryAPI(object):
             )
             assert data == {"id": 0}
 
+    @pytest.mark.skip("Not implemented")
     @pytest.mark.asyncio
     async def test_get_pending_activation(self, api):
         with patch_response(api.session, "get", 200, json={"id": 0}) as mockget:
@@ -168,6 +182,7 @@ class TestDirectoryAPI(object):
             )
             assert data == {"id": 0}
 
+    @pytest.mark.skip("Not implemented")
     @pytest.mark.asyncio
     async def test_get_user(self, api):
         with patch_response(api.session, "get", 200, json={"id": 0}) as mockget:
@@ -177,6 +192,7 @@ class TestDirectoryAPI(object):
             )
             assert data == {"id": 0}
 
+    @pytest.mark.skip("Not implemented")
     @pytest.mark.asyncio
     async def test_get_users(self, api):
         with patch_response(api.session, "get", 200, json={"id": 0}) as mockget:
@@ -186,6 +202,7 @@ class TestDirectoryAPI(object):
             )
             assert data == {"id": 0}
 
+    @pytest.mark.skip("Not implemented")
     @pytest.mark.asyncio
     async def test_get_user_companies(self, api):
         with patch_response(api.session, "get", 200, json={"id": 0}) as mockget:
@@ -195,6 +212,7 @@ class TestDirectoryAPI(object):
             )
             assert data == {"id": 0}
 
+    @pytest.mark.skip("Not implemented")
     @pytest.mark.asyncio
     async def test_get_user_resync(self, api):
         with patch_response(api.session, "get", 200, json={"id": 0}) as mockget:
@@ -204,15 +222,7 @@ class TestDirectoryAPI(object):
             )
             assert data == {"id": 0}
 
-    @pytest.mark.asyncio
-    async def test_get_user_from_email(self, api):
-        with patch_response(api.session, "get", 200, json={"id": 0}) as mockget:
-            data = await api.get_user_from_email(1)
-            mockget.assert_called_with(
-                "https://api.veracity.com/veracity/services/v3/directory/", params={"page": 1, "pageSize": 10}
-            )
-            assert data == {"id": 0}
-
+    @pytest.mark.skip("Not implemented")
     @pytest.mark.asyncio
     async def test_get_user_services(self, api):
         with patch_response(api.session, "get", 200, json={"id": 0}) as mockget:
@@ -222,6 +232,7 @@ class TestDirectoryAPI(object):
             )
             assert data == {"id": 0}
 
+    @pytest.mark.skip("Not implemented")
     @pytest.mark.asyncio
     async def test_get_user_subscription(self, api):
         with patch_response(api.session, "get", 200, json={"id": 0}) as mockget:
@@ -231,6 +242,7 @@ class TestDirectoryAPI(object):
             )
             assert data == {"id": 0}
 
+    @pytest.mark.skip("Not implemented")
     @pytest.mark.asyncio
     async def test_update_current_user(self, api):
         with patch_response(api.session, "get", 200, json={"id": 0}) as mockget:
@@ -241,14 +253,36 @@ class TestDirectoryAPI(object):
             assert data == {"id": 0}
 
     @pytest.mark.asyncio
-    async def test_change_current_user_email(self, api):
+    async def test_get_user_from_email(self, api):
+        """ Get user by email address has no exceptions.
+        """
         with patch_response(api.session, "get", 200, json={"id": 0}) as mockget:
-            data = await api.change_current_user_email(1)
+            data = await api.get_user_from_email("a@a.com")
             mockget.assert_called_with(
-                "https://api.veracity.com/veracity/services/v3/directory/", params={"page": 1, "pageSize": 10}
+                "https://api.veracity.com/veracity/services/v3/directory/users/by/email", params={"email": "a@a.com"}
             )
             assert data == {"id": 0}
 
+    @pytest.mark.asyncio
+    async def test_get_user_from_email_404(self, api):
+        """ Get user by email address returns None if invalid email.
+        """
+        with patch_response(api.session, "get", 404, json={"id": 0}) as mockget:
+            data = await api.get_user_from_email("a@a.com")
+            mockget.assert_called_with(
+                "https://api.veracity.com/veracity/services/v3/directory/users/by/email", params={"email": "a@a.com"}
+            )
+            assert data is None
+
+    @pytest.mark.asyncio
+    async def test_get_user_from_email_500(self, api):
+        """ Get user by email address raises exception upon HTTP error other than 404.
+        """
+        with patch_response(api.session, "get", 500):
+            with pytest.raises(HTTPError):
+                await api.get_user_from_email("a@a.com")
+
+    @pytest.mark.skip("Not implemented")
     @pytest.mark.asyncio
     async def test_change_current_user_phone(self, api):
         with patch_response(api.session, "get", 200, json={"id": 0}) as mockget:
@@ -258,6 +292,7 @@ class TestDirectoryAPI(object):
             )
             assert data == {"id": 0}
 
+    @pytest.mark.skip("Not implemented")
     @pytest.mark.asyncio
     async def test_change_current_user_password(self, api):
         with patch_response(api.session, "get", 200, json={"id": 0}) as mockget:
@@ -267,6 +302,7 @@ class TestDirectoryAPI(object):
             )
             assert data == {"id": 0}
 
+    @pytest.mark.skip("Not implemented")
     @pytest.mark.asyncio
     async def test_validate_current_user_email(self, api):
         with patch_response(api.session, "get", 200, json={"id": 0}) as mockget:
@@ -276,6 +312,7 @@ class TestDirectoryAPI(object):
             )
             assert data == {"id": 0}
 
+    @pytest.mark.skip("Not implemented")
     @pytest.mark.asyncio
     async def test_validate_current_user_phone(self, api):
         with patch_response(api.session, "get", 200, json={"id": 0}) as mockget:

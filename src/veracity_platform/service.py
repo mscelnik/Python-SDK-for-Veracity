@@ -84,7 +84,7 @@ class UserAPI(ApiBase):
             raise HTTPError(endpoint, resp.status, data, resp.headers, None)
         return data
 
-    async def marks_messages_read(self):
+    async def mark_messages_read(self):
         """ Marks all unread messages as read.
 
         References:
