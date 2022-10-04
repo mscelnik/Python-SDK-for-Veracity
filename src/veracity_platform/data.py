@@ -983,9 +983,9 @@ class ProvisionAPI(ApiBase):
             "tags": [{"title": tag, "type": "userTag"} for tag in tags],
         }
         resp = await self.session.post(url, body)
-        data = await resp.json()
+        data = await resp.text()
         if resp.status == 202:
-            return data
+            return data.decode('utf-8')
         else:
             raise HTTPError(url, resp.status, data, resp.headers, None)
 
