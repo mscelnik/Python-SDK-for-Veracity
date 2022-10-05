@@ -5,6 +5,8 @@ References:
 """
 
 from typing import AnyStr, Tuple, List, Dict, Any
+
+from veracity_platform.errors import UserNotFoundError
 from .base import ApiBase
 import datetime
 
@@ -453,9 +455,33 @@ class DirectoryAPI(ApiBase):
         """
         raise NotImplementedError()
 
-    async def get_user_from_email(self, email):
-        """
-        https://api-portal.veracity.com/docs/services/veracity-myservices%20V3/operations/5db14424acc4d910fcde88b8?
+    async def get_user_from_email(self, email: str) -> Dict[str, Any]:
+        """Gets Veracity user information given a valid email address.
+
+        Reference:
+            https://api-portal.veracity.com/docs/services/veracity-myservices%20V3/operations/5db14424acc4d910fcde88b8?
+
+        Args:
+            email: A valid email address (not validated here!)
+
+        Returns:
+            Dictionary with application info like:
+
+            .. code-block:: json
+
+                [
+                    {
+                        "identity": "string",
+                        "email": "string",
+                        "activated": true,
+                        "name": "string",
+                        "id": "string"
+                    }
+                ]
+
+        Raises:
+            UserNotFoundError: If no user exists with that email address = HTTP 404.
+            HTTPError: For other HTTP status codes not in (200, 404).
         """
         url = f"{self.url}/users/by/email"
         params = {"email": email}
@@ -464,7 +490,7 @@ class DirectoryAPI(ApiBase):
             data = await resp.json()
             return data
         elif resp.status == 404:
-            return None
+            raise UserNotFoundError(f"Cannot find Veracity user with email {email}.")
         else:
             raise HTTPError(url, resp.status, await resp.text(), resp.headers, None)
 
