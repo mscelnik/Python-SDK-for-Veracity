@@ -7,6 +7,7 @@ from unittest import mock
 import aiohttp
 import pytest
 from veracity_platform import service, identity
+import veracity_platform
 
 
 @contextmanager
@@ -268,11 +269,8 @@ class TestDirectoryAPI(object):
         """ Get user by email address returns None if invalid email.
         """
         with patch_response(api.session, "get", 404, json={"id": 0}) as mockget:
-            data = await api.get_user_from_email("a@a.com")
-            mockget.assert_called_with(
-                "https://api.veracity.com/veracity/services/v3/directory/users/by/email", params={"email": "a@a.com"}
-            )
-            assert data is None
+            with pytest.raises(veracity_platform.UserNotFoundError):
+                data = await api.get_user_from_email("a@a.com")
 
     @pytest.mark.asyncio
     async def test_get_user_from_email_500(self, api):
