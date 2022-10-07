@@ -5,7 +5,8 @@ requests
 azure-identity
 azure-storage-blob
 azure-keyvault-secrets
+pyjwt
 pytest
 pytest-asyncio
-flask
+flask[async]
 pandas

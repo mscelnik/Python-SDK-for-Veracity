@@ -41,17 +41,55 @@ REDIRECT_URI = "http://localhost/login"
 SCOPES = ["veracity"]
 
 
+def validate_user(session):
+    try:
+        token = session.get("id_token")
+        jwt_verification = verify_token(token, audience=[CLIENT_ID])
+        session["username"] = jwt_verification.get("name")
+    except Exception as err:
+        print(err)
+        return False
+    print("User token is valid.")
+    return True
+
+
+def login_required(fn, endpoint="login"):
+    """ Decorator for Flask endpoint to handle user authentication.
+    """
+    import asyncio
+    from functools import wraps
+
+    def _validate_user():
+        try:
+            token = session.get("id_token")
+            jwt_verification = verify_token(token, audience=[CLIENT_ID])
+            session["username"] = jwt_verification.get("name")
+        except Exception:
+            return redirect(url_for(endpoint))
+
+    if asyncio.iscoroutinefunction(fn):
+
+        @wraps(fn)
+        async def handler(*args, **kwargs):
+            return _validate_user() or await fn(*args, **kwargs)
+
+    else:
+
+        @wraps(fn)
+        def handler(*args, **kwargs):
+            return _validate_user() or fn(*args, **kwargs)
+
+    return handler
+
+
 @app.route("/", methods=["get"])
+@login_required
 async def index():
     """ Root endpoint for the application
 
     Will start authentication flow by redirecting to Veracity IDP if user not
     validated.
     """
-    if not validate_user(session):
-        print("Not logged in")
-        return redirect(url_for("login"))
-
     access_token = session.get("access_token")
     async with UserAPI(access_token, SUBSCRIPTION_KEY) as user_api:
         profile = await user_api.get_profile()
@@ -88,18 +126,6 @@ def login():
     session["flow"] = credential.initiate_auth_code_flow(SCOPES)
     response = redirect(session["flow"]["auth_uri"])
     return response
-
-
-def validate_user(session):
-    try:
-        token = session.get("id_token")
-        jwt_verification = verify_token(token, audience=[CLIENT_ID])
-        session["username"] = jwt_verification.get("name")
-    except Exception as err:
-        print(err)
-        return False
-    print("User token is valid.")
-    return True
 
 
 if __name__ == "__main__":
