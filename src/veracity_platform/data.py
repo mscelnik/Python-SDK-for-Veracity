@@ -22,9 +22,7 @@ class DataFabricAPI(ApiBase):
     received, usually JSON.
 
     Arguments:
-        credential (identity.Credential): Provides oauth access tokens for the
-            API (the user has to log in to retrieve these unless your client
-            application has permissions to use the service.)
+        credential: Oauth access token or the token provider (identity.Credential).
         subscription_key (str): Your application's API subscription key.  Gets
             sent in th Ocp-Apim-Subscription-Key header.
         version (str): Not currently used.
@@ -239,11 +237,35 @@ class DataFabricAPI(ApiBase):
         else:
             raise HTTPError(url, resp.status, data, resp.headers, None)
 
-    async def update_group(self, groupId, *args, **kwargs):
-        raise NotImplementedError()
+    async def update_group(
+        self, groupId: str, title: str, description: str, containerIds: List[str], sortingOrder: float = 0.0
+    ):
+        url = f"{self._url}/groups/{groupId}"
+        body = {
+            "title": title,
+            "description": description,
+            "resourceIds": list(containerIds),
+            "sortingOrder": sortingOrder,
+        }
+        resp = await self.session.put(url, body)
+        data = await resp.json()
+        if resp.status == 200:
+            return
+        elif resp.status == 404:
+            raise DataFabricError(f"Group {groupId} does not exist for current user.")
+        else:
+            raise HTTPError(url, resp.status, data, resp.headers, None)
 
     async def delete_group(self, groupId):
-        raise NotImplementedError()
+        url = f"{self._url}/groups/{groupId}"
+        resp = await self.session.delete(url)
+        data = await resp.json()
+        if resp.status == 204:
+            return
+        elif resp.status == 404:
+            raise DataFabricError(f"Group {groupId} does not exist for current user.")
+        else:
+            raise HTTPError(url, resp.status, data, resp.headers, None)
 
     # KEY TEMPLATES.
 
@@ -464,11 +486,46 @@ class DataFabricAPI(ApiBase):
         return data
 
     async def get_accesses_df(self, resourceId: AnyStr, pageNo: int = 1, pageSize: int = 50) -> pd.DataFrame:
-        """Gets the access levels as a dataframe, including the "level" value."""
+        """Gets the access levels as a dataframe, including the "level" value.
+
+        Ensure the data frame has the correct columns, even if no accesses exist.
+        """
         import pandas as pd
 
         data = await self.get_accesses(resourceId, pageNo, pageSize)
-        df = pd.DataFrame(data["results"])
+        results = data["results"]
+
+        # Expand non-null IP ranges.
+        for result in results:
+            if result["ipRange"] is not None:
+                result["startIp"] = result["ipRange"]["startIp"]
+                result["endIp"] = result["ipRange"]["startIp"]
+
+        # Convert to data frame, ensuring correct columns.
+        df = pd.DataFrame(results)
+        ACCESS_COLUMNS = [
+            "userId",
+            "ownerId",
+            "grantedById",
+            "accessSharingId",
+            "keyCreated",
+            "autoRefreshed",
+            "keyCreatedTimeUTC",
+            "keyExpiryTimeUTC",
+            "resourceType",
+            "accessHours",
+            "accessKeyTemplateId",
+            "attribute1",
+            "attribute2",
+            "attribute3",
+            "attribute4",
+            "resourceId",
+            "startIp",
+            "endIp",
+            "comment",
+        ]
+        df = df.reindex(columns=ACCESS_COLUMNS)
+
         # Add the level values for future use.
         df["level"] = self._access_levels(df)
         self.access_cache[resourceId] = df
@@ -483,8 +540,6 @@ class DataFabricAPI(ApiBase):
         comment: AnyStr = None,
         startIp: AnyStr = None,
         endIp: AnyStr = None,
-        *args,
-        **kwargs,
     ):
         """Shares container access with a user/application.
 
@@ -526,8 +581,18 @@ class DataFabricAPI(ApiBase):
         else:
             raise HTTPError(url, resp.status, data, resp.headers, None)
 
-    async def revoke_access(self, resourceId: AnyStr, accessId: AnyStr):
-        raise NotImplementedError()
+    async def revoke_access(self, containerId: AnyStr, accessId: AnyStr):
+        url = f"{self._url}/resources/{containerId}/accesses/{accessId}"
+        resp = await self.session.put(url)
+        if resp.status == 200:
+            return
+        elif resp.status == 403:
+            raise DataFabricError(f"HTTP/403 User is not the owner or data steward.")
+        elif resp.status == 404:
+            raise DataFabricError(f"HTTP/404 Data Fabric container {containerId} does not exist.")
+        else:
+            data = await resp.json()
+            raise HTTPError(url, resp.status, data, resp.headers, None)
 
     async def get_sas(self, resourceId: AnyStr, accessId: AnyStr = None, **kwargs) -> pd.DataFrame:
         key = self.get_sas_cached(resourceId) or await self.get_sas_new(resourceId, accessId, **kwargs)
@@ -642,14 +707,12 @@ class DataFabricAPI(ApiBase):
             A list of data stewards, each a dictionary like:
 
             .. code-block:: json
-                [
                 {
                     "userId": "00000000-0000-0000-0000-000000000000",
                     "resourceId": "00000000-0000-0000-0000-000000000000",
                     "grantedBy": "00000000-0000-0000-0000-000000000000",
                     "comment": "string"
                 }
-                ]
 
         """
         url = f"{self._url}/resources/{containerId}/datastewards"
@@ -662,8 +725,9 @@ class DataFabricAPI(ApiBase):
         else:
             raise HTTPError(url, resp.status, data, resp.headers, None)
 
-    async def get_data_stewards_df(self, resourceId: AnyStr) -> pd.DataFrame:
-        raise NotImplementedError()
+    async def get_data_stewards_df(self, containerId: AnyStr) -> pd.DataFrame:
+        data = await self.get_data_stewards(containerId)
+        return pd.DataFrame(data, columns=["userId", "resourceId", "grantedBy", "comment"])
 
     async def delegate_data_steward(self, containerId: AnyStr, userId: AnyStr, comment: str) -> Dict[str, str]:
         """Delegates rights to the underlying Azure resource to a new data steward.
@@ -713,8 +777,30 @@ class DataFabricAPI(ApiBase):
             else:
                 raise HTTPError(url, resp.status, data, resp.headers, None)
 
-    async def transfer_ownership(self, resourceId: AnyStr, userId: AnyStr, keepaccess: bool = False):
-        raise NotImplementedError()
+    async def transfer_ownership(self, containerId: AnyStr, userId: AnyStr, keepAccess: bool = False) -> Dict[str, Any]:
+        """ Transfers container ownership to another user.
+
+        Requirements:
+            - The current user must be the container owner
+            - THe new user must have "Data Manager" role in Veracity.
+
+        Args:
+            containerId: GUID of the container.
+            userId: GUID of the new container owner.
+            keepAccess: Should current owner remain a data steward?
+
+        Returns:
+            Container metadata showing new owner.
+        """
+        url = f"{self._url}/resources/{containerId}/owner"
+        resp = await self.session.put(
+            url, params={"userId": userId, "keepAccessAsDataSteward": str(keepAccess).lower()}
+        )
+        data = await resp.json()
+        if resp.status == 200:
+            return data
+        else:
+            raise HTTPError(url, resp.status, data, resp.headers, None)
 
     # TAGS.
 
@@ -843,3 +929,155 @@ class DataFabricAPI(ApiBase):
         sas = await self.get_sas(containerId, **kwargs)
         sasurl = sas["fullKey"]
         return ContainerClient.from_container_url(sasurl)
+
+
+class ProvisionAPI(ApiBase):
+    """Access to the data fabric provisioning API (/datafabric/provisioning) in Veracity.
+
+
+    All web calls are async using aiohttp.  Returns web responses exactly as
+    received, usually JSON.
+
+    Arguments:
+        credential: Oauth access token or the token provider (identity.Credential).
+        subscription_key (str): Your application's API subscription key.  Gets
+            sent in th Ocp-Apim-Subscription-Key header.
+        version (str): Not currently used.
+    """
+
+    API_ROOT = "https://api.veracity.com/veracity/datafabric"
+
+    def __init__(
+        self, credential: identity.Credential, subscription_key: AnyStr, version: AnyStr = None, **kwargs,
+    ):
+        super().__init__(
+            credential, subscription_key, scope=kwargs.pop("scope", "veracity_datafabric"), **kwargs,
+        )
+        self._url = f"{DataFabricAPI.API_ROOT}/provisioning/api/1"
+        self.sas_cache = {}
+        self.access_cache = {}
+
+    @property
+    def url(self) -> str:
+        return self._url
+
+    async def create_container(
+        self, shortName, title, description: str = "", region: str = "westeurope", tags: List[str] = []
+    ) -> str:
+        """Creates a new blob container in the data fabric.
+
+        Reference:
+            https://api-portal.veracity.com/docs/services/5a72f224978c230c4c13aadb/operations/v1-0Container_ProvisionAzureBlobContainer?
+
+        Returns:
+            GUID of the created container.
+        """
+        url = f"{self._url}/container"
+        body = {
+            "storageLocation": region,
+            "containerShortName": shortName,
+            "mayContainPersonalData": False,
+            "title": title,
+            "description": description,
+            "icon": {"id": "Automatic_Information_Display", "backgroundColor": "#5594aa"},
+            "tags": [{"title": tag, "type": "userTag"} for tag in tags],
+        }
+        resp = await self.session.post(url, body)
+        data = await resp.text()
+        if resp.status == 202:
+            return data.decode('utf-8')
+        else:
+            raise HTTPError(url, resp.status, data, resp.headers, None)
+
+    async def copy_container(self, *args, **kwargs):
+        """ Copies a given Container with its content with access sharing ID.
+
+        Reference:
+            https://api-portal.veracity.com/docs/services/5a72f224978c230c4c13aadb/operations/v1-0Container_CopyContainer?
+
+        Returns:
+            GUID of the new (copy) container ID.
+        """
+        # body = {
+        #     "sourceResourceId": "00000000-0000-0000-0000-000000000000",
+        #     "groupId": "00000000-0000-0000-0000-000000000000",
+        #     "copyResourceShortName": "string",
+        #     "copyResourceMayContainPersonalData": True,
+        #     "copyResourceTitle": "string",
+        #     "copyResourceDescription": "string",
+        #     "copyResourceIcon": {
+        #         "id": "string",
+        #         "backgroundColor": "string"
+        #     },
+        #     "copyResourceTags": [
+        #         {
+        #         "title": "string",
+        #         "type": "userTag"
+        #         }
+        #     ],
+        # }
+        raise NotImplementedError()
+
+    async def delete_container(self, *args, **kwargs):
+        """ Deletes a blob container.
+
+        Reference:
+            https://api-portal.veracity.com/docs/services/5a72f224978c230c4c13aadb/operations/v1-0Container_DeleteAzureBlobContainer?
+        """
+        raise NotImplementedError()
+
+    # EVENT SUBSCRIPTIONS.
+
+    async def create_event_subscription(self, *args, **kwargs):
+        """ Provision a callback for custom events.
+
+        Call back url and subscription name Subscription name must be unique
+        through the entire application.
+
+        Reference:
+            https://api-portal.veracity.com/docs/services/5a72f224978c230c4c13aadb/operations/v1-0Container_SubscribeToCustomEvents?
+
+        """
+        raise NotImplementedError()
+
+    async def delete_event_subscription(self, *args, **kwargs):
+        """ Delete a callback for custom events.
+
+        Reference:
+            https://api-portal.veracity.com/docs/services/5a72f224978c230c4c13aadb/operations/v1-0Container_UnsubscribeFromAzureBlobContainerEvents?
+        """
+        raise NotImplementedError()
+
+    async def create_blob_change_subscription(self, *args, **kwargs):
+        """ Provision a callback for blob change events.
+
+        Reference:
+            https://api-portal.veracity.com/docs/services/5a72f224978c230c4c13aadb/operations/v1-0Container_SubscribeToAzureBlobContainerEvents?
+        """
+        raise NotImplementedError()
+
+    async def delete_blob_change_subscription(self, *args, **kwargs):
+        """ Delete a callback for blob change events.
+
+        Reference:
+            https://api-portal.veracity.com/docs/services/5a72f224978c230c4c13aadb/operations/v1-0Container_UnsubscribeFromCustomEvents?
+        """
+        raise NotImplementedError()
+
+    # UTILITIES.
+
+    async def list_regions(self):
+        """ Lists active Azure regions in which you can provision containers.
+
+        Reference:
+            https://api-portal.veracity.com/docs/services/5a72f224978c230c4c13aadb/operations/v1-0Regions_Get?
+        """
+        raise NotImplementedError()
+
+    async def update_metadata(self):
+        """ Patch a container's metadata.
+
+        Reference:
+            https://api-portal.veracity.com/docs/services/5a72f224978c230c4c13aadb/operations/v1-0Container_UpdateMetadata?
+        """
+        raise NotImplementedError()

@@ -175,6 +175,12 @@ class Credential(object):
     def __init__(self, service):
         self.service = service
 
+    @property
+    def interactive(self):
+        """ Is this credential interactive; does it require user input?
+        """
+        return isinstance(self.service, msal.PublicClientApplication)
+
     def get_token(self, scopes: Sequence[AnyStr], **kwargs) -> Dict[AnyStr, AnyStr]:
         raise NotImplementedError("Do not use base class directly.")
 
@@ -240,8 +246,7 @@ class InteractiveBrowserCredential(Credential):
         if not server:
             raise IdentityError("Could not start an HTTP server for interactive credential.")
 
-        clean_scopes = expand_veracity_scopes(scopes, interactive=True)
-        flow = self.service.initiate_auth_code_flow(clean_scopes, redirect_uri=self.redirect_uri)
+        flow = self.initiate_auth_code_flow(scopes)
 
         # Open system default browser to auth url.
         auth_url = flow["auth_uri"]
@@ -261,7 +266,7 @@ class InteractiveBrowserCredential(Credential):
 
         # Redeem the authorization code for a token.  This handles any errors with
         # malformed responses, so we don't have to.
-        token = self.service.acquire_token_by_auth_code_flow(flow, server.query_params)
+        token = self.acquire_token_by_auth_code_flow(flow, server.query_params)
         return token
 
     def _make_server(self, redirect_uri, timeout=30):
@@ -270,6 +275,17 @@ class InteractiveBrowserCredential(Credential):
         """
         server = AuthCodeRedirectServer(redirect_uri, timeout)
         return server
+
+    def initiate_auth_code_flow(self, scopes):
+        """ Wrapper for MSAL auth-code flow which interprets Veracity scopes.
+        """
+        clean_scopes = expand_veracity_scopes(scopes, interactive=True)
+        return self.service.initiate_auth_code_flow(clean_scopes, redirect_uri=self.redirect_uri)
+
+    def acquire_token_by_auth_code_flow(self, flow, query_params):
+        """ Wrapper for MSAL auth-code flow.
+        """
+        return self.service.acquire_token_by_auth_code_flow(flow, query_params)
 
 
 class CertificateCredential(Credential):

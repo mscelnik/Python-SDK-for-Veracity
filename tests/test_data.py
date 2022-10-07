@@ -1,10 +1,4 @@
-""" Integration (API call) tests for the data fabric API.
-
-Prerequisites:
-
-    - Registered client credential app at developer.veracity.com.
-    - Access to a test data container in the Veracity data fabric.
-    - Set up an Azure key vault or environment variables (see README).
+""" Unit tests for the data fabric API.
 """
 
 from contextlib import contextmanager
@@ -161,19 +155,29 @@ class TestDataFabricAPI(object):
             with pytest.raises(data.DataFabricError):
                 await api.get_group("0")
 
-    @pytest.mark.skip("Not implemented")
     @pytest.mark.asyncio
-    async def test_update_group(self, api):
+    async def test_update_group_200(self, api):
         """ Update group has no exceptions.
         """
-        await api.update_group()
+        payload = {
+            "title": "mygroup",
+            "description": "my description",
+            "resourceIds": ["0"],
+            "sortingOrder": 0.0,
+        }
+        with patch_response(api.session, "put", 200) as mockput:
+            await api.update_group(0, "mygroup", "my description", ["0"])
+            mockput.assert_called_with(
+                "https://api.veracity.com/veracity/datafabric/data/api/1/groups/0", payload,
+            )
 
-    @pytest.mark.skip("Not implemented")
     @pytest.mark.asyncio
-    async def test_delete_group(self, api):
+    async def test_delete_group_204(self, api):
         """ Delete group has no exceptions.
         """
-        await api.delete_group()
+        with patch_response(api.session, "delete", 204) as mockdelete:
+            await api.delete_group("1")
+            mockdelete.assert_called_with("https://api.veracity.com/veracity/datafabric/data/api/1/groups/1")
 
     # KEY TEMPLATES.
 
@@ -351,6 +355,48 @@ class TestDataFabricAPI(object):
             )
 
     @pytest.mark.asyncio
+    async def test_get_accesses_df_nodata(self, api):
+        """ Returns empty dataframe ok if no accesses.
+        """
+        response = {
+            "results": [],
+            "page": 0,
+            "resultsPerPage": 0,
+            "totalPages": 0,
+            "totalResults": 0,
+        }
+
+        expected = pd.DataFrame(
+            columns=[
+                "userId",
+                "ownerId",
+                "grantedById",
+                "accessSharingId",
+                "keyCreated",
+                "autoRefreshed",
+                "keyCreatedTimeUTC",
+                "keyExpiryTimeUTC",
+                "resourceType",
+                "accessHours",
+                "accessKeyTemplateId",
+                "attribute1",
+                "attribute2",
+                "attribute3",
+                "attribute4",
+                "resourceId",
+                "startIp",
+                "endIp",
+                "comment",
+                "level",
+            ]
+        )
+        with patch_response(api.session, "get", 200, json=response) as mockget:
+            result = await api.get_accesses_df("1")
+            print(result)
+            assert result is not None
+            pdt.assert_frame_equal(expected, result, check_dtype=False)
+
+    @pytest.mark.asyncio
     async def test_get_best_access(self, api):
         """ Get an access share ID for a demo container.
         Note, we cannot test precisely the access because it depends on the
@@ -392,6 +438,24 @@ class TestDataFabricAPI(object):
             assert data is None
 
     @pytest.mark.asyncio
+    async def test_share_access_200(self, api):
+        response = {"accessSharingId": "00000000-0000-0000-0000-000000000000"}
+        with patch_response(api.session, "post", 200, json=response) as mockpost:
+            data = await api.share_access("0", "1", "2", autoRefreshed=True)
+            mockpost.assert_called_with(
+                "https://api.veracity.com/veracity/datafabric/data/api/1/resources/0/accesses",
+                json={"userId": "1", "accessKeyTemplateId": "2"},
+                params={"autoRefreshed": "true"},
+            )
+            assert data == "00000000-0000-0000-0000-000000000000"
+
+    @pytest.mark.asyncio
+    async def test_revoke_access_200(self, api):
+        with patch_response(api.session, "put", 200) as mockput:
+            await api.revoke_access("0", "1")
+            mockput.assert_called_with("https://api.veracity.com/veracity/datafabric/data/api/1/resources/0/accesses/1")
+
+    @pytest.mark.asyncio
     async def test_sas_new(self, api):
         """ Get new SAS key given an access ID.
         """
@@ -426,7 +490,7 @@ class TestDataFabricAPI(object):
             sas = api.get_sas_cached("MyContainer")
             assert sas == mock_cache["MyContainer"]
 
-    def test_access_level(self, api):
+    def test_access_levels(self, api):
         import pandas as pd
         import pandas.testing as pdt
 
@@ -456,11 +520,20 @@ class TestDataFabricAPI(object):
             )
             assert expected == data
 
-    @pytest.mark.skip("Not implemented")
     @pytest.mark.asyncio
     async def test_get_data_stewards_df(self, api):
-        data = await api.get_data_stewards_df()
-        assert data is not None
+        import pandas as pd
+
+        response = [{"userId": "0", "resourceId": "1", "grantedBy": "2", "comment": "my comment"}]
+        expected = pd.DataFrame(
+            columns=["userId", "resourceId", "grantedBy", "comment"], data=[["0", "1", "2", "my comment"]],
+        )
+        with patch_response(api.session, "get", 200, json=response) as mockget:
+            data = await api.get_data_stewards_df("1")
+            mockget.assert_called_with(
+                "https://api.veracity.com/veracity/datafabric/data/api/1/resources/1/datastewards"
+            )
+            pdt.assert_frame_equal(expected, data, check_dtype=False)
 
     @pytest.mark.asyncio
     async def test_delegate_data_steward(self, api):
@@ -498,11 +571,15 @@ class TestDataFabricAPI(object):
             with pytest.raises(data.DataFabricError):
                 await api.delete_data_steward(1, 0)
 
-    @pytest.mark.skip("Not implemented")
     @pytest.mark.asyncio
     async def test_transfer_ownership(self, api):
-        data = await api.transfer_ownership()
-        assert data is not None
+        response = {}
+        with patch_response(api.session, "put", 200, json=response) as mockput:
+            await api.transfer_ownership("1", "0", True)
+            mockput.assert_called_with(
+                "https://api.veracity.com/veracity/datafabric/data/api/1/resources/1/owner",
+                params={"userId": "0", "keepAccessAsDataSteward": "true"},
+            )
 
     # TAGS.
 
