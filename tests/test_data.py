@@ -78,7 +78,7 @@ class TestDataFabricAPI(object):
             await api.add_application("1", "2", "role")
             mockpost.assert_called_with(
                 "https://api.veracity.com/veracity/datafabric/data/api/1/application",
-                {"id": "1", "companyId": "2", "role": "role"},
+                json={"id": "1", "companyId": "2", "role": "role"},
             )
 
     @pytest.mark.asyncio
@@ -127,7 +127,7 @@ class TestDataFabricAPI(object):
         with patch_response(api.session, "post", 201, json=expected) as mockpost:
             actual = await api.add_group("mygroup", "my description", ["0"])
             mockpost.assert_called_with(
-                "https://api.veracity.com/veracity/datafabric/data/api/1/groups", payload,
+                "https://api.veracity.com/veracity/datafabric/data/api/1/groups", json=payload,
             )
             assert expected == actual
 
@@ -547,7 +547,7 @@ class TestDataFabricAPI(object):
             data = await api.delegate_data_steward(1, 0, "my comment")
             mockpost.assert_called_with(
                 "https://api.veracity.com/veracity/datafabric/data/api/1/resources/1/datastewards/0",
-                {"comment": "my comment"},
+                json={"comment": "my comment"},
             )
             assert expected == data
 
@@ -618,7 +618,7 @@ class TestDataFabricAPI(object):
         with patch_response(api.session, "post", 200, json=response) as mockpost:
             result = await api.add_tags(["mytag"])
             mockpost.assert_called_with(
-                "https://api.veracity.com/veracity/datafabric/data/api/1/tags", [{"title": "mytag"}],
+                "https://api.veracity.com/veracity/datafabric/data/api/1/tags", json=[{"title": "mytag"}],
             )
             assert result == response
 
