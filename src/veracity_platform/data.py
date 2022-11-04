@@ -980,12 +980,12 @@ class ProvisionAPI(ApiBase):
             "title": title,
             "description": description,
             "icon": {"id": "Automatic_Information_Display", "backgroundColor": "#5594aa"},
-            "tags": [{"title": tag, "type": "userTag"} for tag in tags],
+            "tags": [{"title": tag, "type": "tag"} for tag in tags],
         }
         resp = await self.session.post(url, json=body)
         data = await resp.text()
         if resp.status == 202:
-            return data.decode('utf-8')
+            return data
         else:
             raise HTTPError(url, resp.status, data, resp.headers, None)
 

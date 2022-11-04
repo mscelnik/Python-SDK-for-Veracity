@@ -66,7 +66,7 @@ class TestProvisionAPI(object):
                 "title": "My Container",
                 "description": "My new container",
                 "icon": {"id": "Automatic_Information_Display", "backgroundColor": "#5594aa"},
-                "tags": [{"title": "my", "type": "userTag"}, {"title": "container", "type": "userTag"}],
+                "tags": [{"title": "my", "type": "tag"}, {"title": "container", "type": "tag"}],
             }
             mockpost.assert_called_with(
                 "https://api.veracity.com/veracity/datafabric/provisioning/api/1/container", json=expected_body
