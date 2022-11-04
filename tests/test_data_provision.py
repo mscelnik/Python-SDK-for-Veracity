@@ -1,4 +1,3 @@
-
 """ Unit tests for the data fabric provisioning API.
 """
 
@@ -36,14 +35,29 @@ class TestProvisionAPI(object):
             await api.connect()
             yield api
 
-    # APPLICATIONS.
+    @pytest.fixture(scope="function")
+    async def api_context(self, credential):
+        # Mock out the aiohttp session for unit testing.  This prevents any real
+        # web calls.
+        # This version used the API as a context manager.
+        with mock.patch("veracity_platform.base.ClientSession", autospec=True):
+            async with data.ProvisionAPI(credential, "key") as api:
+                yield api
+
+    # CONTAINERS.
 
     @pytest.mark.asyncio
     async def test_create_container(self, api):
         """ Creating a new container has no exceptions.
         """
-        with patch_response(api.session, "post", 202, text=b'MOCK_GUID') as mockget:
-            data = await api.create_container("mycontainer", "My Container", description="My new container", region="westeurope", tags=["my", "container"])
+        with patch_response(api.session, "post", 202, text=b"MOCK_GUID") as mockpost:
+            data = await api.create_container(
+                "mycontainer",
+                "My Container",
+                description="My new container",
+                region="westeurope",
+                tags=["my", "container"],
+            )
 
             expected_body = {
                 "storageLocation": "westeurope",
@@ -54,5 +68,7 @@ class TestProvisionAPI(object):
                 "icon": {"id": "Automatic_Information_Display", "backgroundColor": "#5594aa"},
                 "tags": [{"title": "my", "type": "userTag"}, {"title": "container", "type": "userTag"}],
             }
-            mockget.assert_called_with("https://api.veracity.com/veracity/datafabric/provisioning/api/1/container", expected_body)
-            assert data == 'MOCK_GUID'
+            mockpost.assert_called_with(
+                "https://api.veracity.com/veracity/datafabric/provisioning/api/1/container", json=expected_body
+            )
+            assert data == "MOCK_GUID"
