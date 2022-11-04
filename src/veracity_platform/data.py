@@ -124,7 +124,7 @@ class DataFabricAPI(ApiBase):
             "companyId": companyId,
             "role": role,
         }
-        resp = await self.session.post(url, body)
+        resp = await self.session.post(url, json=body)
         if resp.status != 200:
             if resp.status == 409:
                 raise DataFabricError(
@@ -197,7 +197,7 @@ class DataFabricAPI(ApiBase):
             "resourceIds": list(containerIds),
             "sortingOrder": sortingOrder,
         }
-        resp = await self.session.post(url, body)
+        resp = await self.session.post(url, json=body)
         data = await resp.json()
         if resp.status != 201:
             raise HTTPError(url, resp.status, data, resp.headers, None)
@@ -754,7 +754,7 @@ class DataFabricAPI(ApiBase):
         """
         url = f"{self._url}/resources/{containerId}/datastewards/{userId}"
         body = {"comment": comment}
-        resp = await self.session.post(url, body)
+        resp = await self.session.post(url, json=body)
         data = await resp.json()
         if resp.status != 200:
             raise HTTPError(url, resp.status, data, resp.headers, None)
@@ -852,7 +852,7 @@ class DataFabricAPI(ApiBase):
         """
         body = [{"title": tag} for tag in tags]
         url = f"{self._url}/tags"
-        resp = await self.session.post(url, body)
+        resp = await self.session.post(url, json=body)
         data = await resp.json()
         if resp.status != 200:
             raise HTTPError(url, resp.status, data, resp.headers, None)
@@ -982,7 +982,7 @@ class ProvisionAPI(ApiBase):
             "icon": {"id": "Automatic_Information_Display", "backgroundColor": "#5594aa"},
             "tags": [{"title": tag, "type": "userTag"} for tag in tags],
         }
-        resp = await self.session.post(url, body)
+        resp = await self.session.post(url, json=body)
         data = await resp.text()
         if resp.status == 202:
             return data.decode('utf-8')
