@@ -50,7 +50,7 @@ class TestProvisionAPI(object):
     async def test_create_container(self, api):
         """ Creating a new container has no exceptions.
         """
-        with patch_response(api.session, "post", 202, text=b"MOCK_GUID") as mockpost:
+        with patch_response(api.session, "post", 202, text="MOCK_GUID") as mockpost:
             data = await api.create_container(
                 "mycontainer",
                 "My Container",
