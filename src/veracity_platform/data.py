@@ -303,13 +303,119 @@ class DataFabricAPI(ApiBase):
         write.
 
         Returns:
-            Pandas dataframe with the key templates
+            Pandas dataframe with the key templates, sorted by ascending access
+            level (higher level means more privileged access).
 
         Exceptions:
             Raises HTTPError if not a 200 response.
         """
         data = await self.get_keytemplates()
-        return pd.DataFrame(data)
+        df = pd.DataFrame(data)
+        df['level'] = self._access_levels(df)
+        return df.sort_values('level', inplace=False)
+
+    async def get_keytemplate(
+        self,
+        read: bool = False,
+        write: bool = False,
+        list_: bool = False,
+        delete: bool = False,
+        duration: int = 1,
+        exact_privileges: bool = False,
+    ):
+        """Gets a key template matching the required privileges.
+
+        If you provide a duration, this method will locate the access template with
+        the closest available duration <= to the desired duration.  By default it
+        uses a duration of 1 hour (shortest available in Veracity).
+
+        Args:
+            read: Has user read access?
+            write: Has user write access?
+            list_: Has user ability to list container files?
+            delete: Has user ability to delete files?
+            duration: Desired maximum key expiry duration in hours.
+            exact_privileges: Set True to match privileges exactly.  If False (default)
+                then returns any rows with at least the required privileges, e.g.
+                will return records where the key write privilege is True, even if
+                argument write=False.
+
+        Returns:
+            A dictionary with the key template properties.
+        """
+        assert any((read, write, delete, list_)), "You must request at least one access privilege from (read, write, list, delete)."
+
+        allkeys = await self.get_keytemplates_df()
+
+        # Find key templates with the desired access privileges.
+        privileged = self._filter_key_attributes(allkeys, read, write, list_, delete, exact_match=exact_privileges)
+
+        # If we cannot match the desired privileges, fail.
+        if len(privileged) == 0:
+            names = ["read", "write", "delete", "list"]
+            flags = [read, write, delete, list_]
+            requested = [name for name, flag in zip(names, flags) if flag]
+            raise RuntimeError(f"Cannot find key template with {'+'.join(requested)} access privileges.")
+
+        # Get the key templates with up to the desired duration.
+        keys = privileged[(privileged["totalHours"] - duration) <= 0]
+        if len(keys) == 0:
+            # If there are no keys with the desired duration, take the key
+            # with the lower privilege and duration.
+            key = privileged.sort_values(['level', 'totalHours'], ascending=True).iloc[0]
+        else:
+            # Return the lower privilege key with the longest duration below that
+            # requested.
+            key = keys.sort_values(['level', 'totalHours'], ascending=[True, False]).iloc[0]
+
+        return key.to_dict()
+
+    @staticmethod
+    def _filter_key_attributes(keys: pd.DataFrame, read: bool, write: bool, list_: bool, delete: bool, exact_match: bool = False):
+        """ Filters a data frame to match privilege levels.
+
+        Veracity key/access privilege attributes are mapped in columns with names:
+
+            | ---------- | ----------------- |
+            | Column     | Purpose           |
+            | ---------- | ----------------- |
+            | attribute1 | Read privileges   |
+            | attribute2 | Write privileges  |
+            | attribute3 | Delete privileges |
+            | attribute4 | List privileges   |
+            | ---------- | ----------------- |
+
+        Args:
+            keys: DataFrame with key/access records.  Must have attribute columns 1-4.
+            read: Has key read access?
+            write: Has key write access?
+            list_: Has key ability to list container files?
+            delete: Has key ability to delete files?
+            exact_match: Set True to match privileges exactly.  If False (default)
+                then returns any rows with at least the required privileges, e.g.
+                will return records where the key write privilege is True, even if
+                argument write=False.
+
+        Returns:
+            Pandas dataframe with rows filtered to those matched the requested
+            privileges.
+        """
+        if exact_match:
+            mask = (
+                (keys["attribute1"] == read)
+                & (keys["attribute2"] == write)
+                & (keys["attribute3"] == delete)
+                & (keys["attribute4"] == list_)
+            )
+        else:
+            # required = TT, optional = TF|FF, not-allowed = FT
+            mask = (
+                ~(~keys["attribute1"] & read)
+                & ~(~keys["attribute2"] & write)
+                & ~(~keys["attribute3"] & delete)
+                & ~(~keys["attribute4"] & list_)
+            )
+        return keys.loc[mask]
 
     # LEDGER.
 
@@ -488,7 +594,9 @@ class DataFabricAPI(ApiBase):
     async def get_accesses_df(self, resourceId: AnyStr, pageNo: int = 1, pageSize: int = 50) -> pd.DataFrame:
         """Gets the access levels as a dataframe, including the "level" value.
 
-        Ensure the data frame has the correct columns, even if no accesses exist.
+        The data is sorted by ascending "level", where higher levels mean more access.
+
+        Ensures the data frame has the correct columns, even if no accesses exist.
         """
         import pandas as pd
 
@@ -497,7 +605,7 @@ class DataFabricAPI(ApiBase):
 
         # Expand non-null IP ranges.
         for result in results:
-            if result["ipRange"] is not None:
+            if result.get("ipRange") is not None:
                 result["startIp"] = result["ipRange"]["startIp"]
                 result["endIp"] = result["ipRange"]["startIp"]
 
@@ -529,9 +637,111 @@ class DataFabricAPI(ApiBase):
         # Add the level values for future use.
         df["level"] = self._access_levels(df)
         self.access_cache[resourceId] = df
-        return df
+        return df.sort_values("level", inplace=False)
 
-    async def share_access(
+    async def check_share_exists(self, containerId: AnyStr, userId: AnyStr, read: bool, write: bool, list_: bool, delete: bool, exact_privileges: bool = False):
+        """Checks if the current user/app has shared access with another user.
+
+        This method does not check key duration.
+
+        Args:
+            containerId: Container ID to which to share access.
+            userId: User Veracity ID (GUID)
+            read: Check user read access?
+            write: Check user write access?
+            list_: Check user ability to list container files?
+            delete: Check user ability to delete files?
+            exact_privileges: Set True to match privileges exactly.  If False (default)
+                then returns any rows with at least the required privileges, e.g.
+                will return records where the key write privilege is True, even if
+                argument write=False.
+
+        Returns:
+            Access share ID is exists, otherwise None.
+        """
+        accesses = await self.get_accesses_df(containerId, pageSize=-1)
+
+        if len(accesses) == 0:
+            # Bail if there are no accesses (hence no shares).
+            return
+
+        me = await self.whoami()  # Logged in user/app.
+
+        privileged = self._filter_key_attributes(accesses, read, write, list_, delete, exact_match=exact_privileges)
+        if len(privileged) == 0:
+            # Bail if there are no accesses with correct privileges (hence no shares).
+            return
+
+        mask = (privileged["userId"] == userId) & (privileged["grantedById"] == me["id"])
+        existing_shares = privileged[mask]
+
+        if len(existing_shares) > 0:
+            return existing_shares["accessSharingId"].iloc[0]
+
+    async def _share_access_by_permission(
+        self,
+        containerId: AnyStr,
+        userId: AnyStr,
+        read: bool = False,
+        write: bool = False,
+        list_: bool = False,
+        delete: bool = False,
+        duration: int = 1,
+        autoRefreshed: bool = False,
+        comment: AnyStr = None,
+        startIp: AnyStr = None,
+        endIp: AnyStr = None,
+    ):
+        """Attempts to share container access using the requested permissions.
+
+        This method first looks for a suitable access share template, then
+        applies that template for the user.  If no template is available, then
+        raises an error.
+
+        If the user already has a suitable access share, then this method does
+        not create a new one; it returns the ID of the existing share.
+
+        If you provide a duration, this method will locate the access template with
+        the closest available duration <= to the desired duration.
+
+        Args:
+            containerId: Container ID to which to share access.
+            userId: User Veracity ID (GUID)
+            read: Give user read access?
+            write: Give user write access?
+            list_: Give user ability to list container files?
+            delete: Give user ability to delete files?
+            autoRefreshed: Should key automatically refresh if expired?
+            duration: Desired maximum key expiry duration in hours.
+            comment: Comment for the share, useful to remember why you shared!
+            startIp: Start of valid user IP range, optional.
+            endIp: End of valid user IP range, optional.
+
+        Returns:
+            GUID of access grant (sharing ID) if successful.
+
+        Raises:
+            RuntimeError if requested privileges cannot be met.
+        """
+        accessid = await self.check_share_exists(containerId, userId, read, write, list_, delete)
+        if accessid:
+            return accessid
+
+        # There is no existing access, so get an appropriate template to create a new access.
+        key = await self.get_keytemplate(read, write, list_, delete, duration)
+
+        accessid = await self._share_access_with_template(
+            containerId,
+            userId,
+            accessKeyTemplateId=key["id"],
+            autoRefreshed=autoRefreshed,
+            comment=comment,
+            startIp=startIp,
+            endIp=endIp,
+        )
+        return accessid
+
+    async def _share_access_with_template(
         self,
         containerId: AnyStr,
         userId: AnyStr,
@@ -549,6 +759,9 @@ class DataFabricAPI(ApiBase):
             userId: ID of the user/application with which to share access.
             accessKeyTemplateId: Access level template (e.g read, write etc.)
                 Get valid key templates using :meth:`get_keytemplates` method
+            comment: Comment for the share, useful to remember why you shared!
+            startIp: Start of valid user IP range, optional.
+            endIp: End of valid user IP range, optional.
 
         Returns:
             The accessSharingId (str) if successful.
@@ -580,6 +793,55 @@ class DataFabricAPI(ApiBase):
             raise DataFabricError(f"HTTP/404 Data Fabric container {containerId} does not exist. Details:\n{data}")
         else:
             raise HTTPError(url, resp.status, data, resp.headers, None)
+
+    async def share_access(
+        self,
+        containerId: AnyStr,
+        userId: AnyStr,
+        accessKeyTemplateId: AnyStr = None,
+        autoRefreshed: bool = False,
+        comment: AnyStr = None,
+        startIp: AnyStr = None,
+        endIp: AnyStr = None,
+        read: bool = False,
+        write: bool = False,
+        list_: bool = False,
+        delete: bool = False,
+        duration: int = 1,
+    ):
+        """ Shares container access with a user/application.
+
+        Args:
+            containerId: Container ID to which to share access.
+            userId: ID of the user/application with which to share access.
+            accessKeyTemplateId: Access level template (e.g read, write etc.)
+                Get valid key templates using :meth:`get_keytemplates` method.
+                If not provided, then you must request at least one privilege
+                (read, write, list, delete) for the method to automatically
+                find an access key template.
+            autoRefreshed: Auto-renew keys when they expire?
+            comment: Comment for the share, useful to remember why you shared!
+            startIp: Start of valid user IP range, optional.
+            endIp: End of valid user IP range, optional.
+            read: Request user read access.
+            write: Request user write access.
+            list_: Request user ability to list container files.
+            delete: Request user ability to delete files.
+            autoRefreshed: Should key automatically refresh if expired?
+            duration: Desired maximum key expiry duration in hours.
+
+        Returns:
+            The accessSharingId (str) if successful.
+
+        Exceptions:
+            Raises DataFabric error for known errors.
+            Raises HTTPError for unknown errors.
+        """
+        if accessKeyTemplateId is not None:
+            return await self._share_access_with_template(containerId, userId, accessKeyTemplateId, autoRefreshed=autoRefreshed, comment=comment, startIp=startIp, endIp=endIp)
+        else:
+            assert any((read, write, delete, list_)), "Must provide access key template ID or at least one privilige (read, write, delete or list)."
+            return await self._share_access_by_permission(containerId, userId, read=read, write=write, list_=list_, delete=delete, duration=duration, autoRefreshed=autoRefreshed, comment=comment, startIp=startIp, endIp=endIp)
 
     async def revoke_access(self, containerId: AnyStr, accessId: AnyStr):
         url = f"{self._url}/resources/{containerId}/accesses/{accessId}"
@@ -980,12 +1242,12 @@ class ProvisionAPI(ApiBase):
             "title": title,
             "description": description,
             "icon": {"id": "Automatic_Information_Display", "backgroundColor": "#5594aa"},
-            "tags": [{"title": tag, "type": "userTag"} for tag in tags],
+            "tags": [{"title": tag, "type": "tag"} for tag in tags],
         }
         resp = await self.session.post(url, json=body)
         data = await resp.text()
         if resp.status == 202:
-            return data.decode('utf-8')
+            return data
         else:
             raise HTTPError(url, resp.status, data, resp.headers, None)
 
