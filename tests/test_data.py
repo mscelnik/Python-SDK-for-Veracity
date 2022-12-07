@@ -39,6 +39,54 @@ class TestDataFabricAPI(object):
             await api.connect()
             yield api
 
+    @pytest.fixture(scope="function")
+    def mock_accesses(self, api):
+        accesses = pd.DataFrame(
+            columns=[
+                "userId",
+                "grantedById",
+                "attribute1",
+                "attribute2",
+                "attribute3",
+                "attribute4",
+                "accessSharingId",
+            ],
+            data=[
+                # read, write, delete, list
+                ["1", "0", True, False, False, False, "A"],
+                ["1", "0", True, False, False, False, "A2"],
+                ["1", "0", False, True, False, False, "B"],
+                ["1", "0", False, False, False, True, "C"],
+                ["1", "0", False, False, True, False, "D"],
+                ["1", "0", True, True, True, True, "E"],
+            ],
+        )
+        with mock.patch.object(api, "get_accesses", return_value={'results': accesses.to_dict(orient="records")}):
+            yield accesses
+
+    @pytest.fixture(scope="function")
+    def mock_keytemplates(self, api):
+        templates = pd.DataFrame(
+            columns=["attribute1", "attribute2", "attribute3", "attribute4", "totalHours", "id"],
+            data=[
+                # read, write, delete, list
+                [True, False, False, False, 1, "A"],
+                [True, False, False, False, 8, "B"],
+                [True, True, True, True, 1, "C"],
+                [True, True, True, True, 8, "D"],
+                [True, True, True, True, 720, "E"],
+                [True, True, True, True, 1440, "F"],
+            ],
+        )
+        with mock.patch.object(api, "get_keytemplates", return_value=templates.to_dict(orient="records")):
+            yield templates
+
+    @pytest.fixture(scope="function")
+    def mock_whoami(self, api):
+        me = {"id": "0"}
+        with mock.patch.object(api, "whoami", return_value=me):
+            yield me
+
     # APPLICATIONS.
 
     @pytest.mark.asyncio
@@ -210,9 +258,10 @@ class TestDataFabricAPI(object):
                 "attribute2",
                 "attribute3",
                 "attribute4",
+                "level",
             ],
             data=[
-                ["00000000-0000-0000-0000-000000000000", "mykey", 0, True, "My key template", True, True, False, False,]
+                ["00000000-0000-0000-0000-000000000000", "mykey", 0, True, "My key template", True, True, False, False, 5]
             ],
         )
 
@@ -223,7 +272,46 @@ class TestDataFabricAPI(object):
 
             data = await api.get_keytemplates_df()
             mockget.assert_called_with("https://api.veracity.com/veracity/datafabric/data/api/1/keytemplates")
-            pdt.assert_frame_equal(keysdf, data)
+            pdt.assert_frame_equal(keysdf, data, check_dtype=False)
+
+    @pytest.mark.asyncio
+    @pytest.mark.usefixtures("mock_keytemplates")
+    async def test_get_keytemplate_duration(self, api):
+        # No duration specified
+        result = await api.get_keytemplate(read=True, exact_privileges=True)
+        assert result == {
+            "attribute1": True,
+            "attribute2": False,
+            "attribute3": False,
+            "attribute4": False,
+            "totalHours": 1,
+            "id": "A",
+            "level": 4,
+        }
+
+        # An exact match to duration.
+        result = await api.get_keytemplate(read=True, duration=8, exact_privileges=True)
+        assert result == {
+            "attribute1": True,
+            "attribute2": False,
+            "attribute3": False,
+            "attribute4": False,
+            "totalHours": 8,
+            "id": "B",
+            "level": 4,
+        }
+
+        # Rounds down duration.
+        result = await api.get_keytemplate(read=True, duration=7, exact_privileges=True)
+        assert result == {
+            "attribute1": True,
+            "attribute2": False,
+            "attribute3": False,
+            "attribute4": False,
+            "totalHours": 1,
+            "id": "A",
+            "level": 4,
+        }
 
     # LEDGER - NO LONGER AVAILABLE.
 
@@ -454,6 +542,40 @@ class TestDataFabricAPI(object):
         with patch_response(api.session, "put", 200) as mockput:
             await api.revoke_access("0", "1")
             mockput.assert_called_with("https://api.veracity.com/veracity/datafabric/data/api/1/resources/0/accesses/1")
+
+    @pytest.mark.asyncio
+    @pytest.mark.usefixtures("mock_accesses", "mock_whoami")
+    async def test_check_share_exists(self, api):
+        # Different privilege levels
+        access = await api.check_share_exists("MyContainer", "1", True, False, False, False, exact_privileges=True)
+        assert access == "A"
+        access = await api.check_share_exists("MyContainer", "1", False, True, False, False, exact_privileges=True)
+        assert access == "B"
+        access = await api.check_share_exists("MyContainer", "1", False, False, True, False, exact_privileges=True)
+        assert access == "C"
+        access = await api.check_share_exists("MyContainer", "1", False, False, False, True, exact_privileges=True)
+        assert access == "D"
+        access = await api.check_share_exists("MyContainer", "1", True, True, True, True, exact_privileges=True)
+        assert access == "E"
+
+        # If we request no permissions, it still returns an access ID because we don't
+        # mind if we have better permissions than requested.  It returns the lowest-level
+        # access; in this case "B" which is write-only.
+        access = await api.check_share_exists("MyContainer", "1", False, False, False, False, exact_privileges=False)
+        assert access == "B"
+
+        # Unavailable user.
+        access = await api.check_share_exists("MyContainer", "2", True, True, True, True, exact_privileges=False)
+        assert access is None
+
+    @pytest.mark.asyncio
+    @pytest.mark.usefixtures("mock_keytemplates", "mock_accesses", "mock_whoami")
+    async def test_share_access(self, api):
+        with mock.patch.object(api, "_share_access_with_template"):
+            await api.share_access("SomeContainer", "2", read=True, autoRefreshed=True)
+            api._share_access_with_template.assert_awaited_with("SomeContainer", "2", accessKeyTemplateId="A", autoRefreshed=True, comment=None, startIp=None, endIp=None)
+
+    # SAS KEYS
 
     @pytest.mark.asyncio
     async def test_sas_new(self, api):
