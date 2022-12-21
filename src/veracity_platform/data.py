@@ -4,14 +4,25 @@
 
 from typing import Any, AnyStr, List, Mapping, Sequence, Dict
 from urllib.error import HTTPError
+from xmlrpc.client import Boolean
 import pandas as pd
 from azure.storage.blob.aio import ContainerClient
 from .base import ApiBase
 from . import identity
+from .errors import VeracityError, PermissionError
 
 
-class DataFabricError(RuntimeError):
-    pass
+# Custom exceptions.
+class DataFabricError(VeracityError):
+    ...
+
+
+class ContainerNotFoundError(DataFabricError):
+    ...
+
+
+class UserNotOwnerError(DataFabricError):
+    ...
 
 
 class DataFabricAPI(ApiBase):
@@ -31,10 +42,17 @@ class DataFabricAPI(ApiBase):
     API_ROOT = "https://api.veracity.com/veracity/datafabric"
 
     def __init__(
-        self, credential: identity.Credential, subscription_key: AnyStr, version: AnyStr = None, **kwargs,
+        self,
+        credential: identity.Credential,
+        subscription_key: AnyStr,
+        version: AnyStr = None,
+        **kwargs,
     ):
         super().__init__(
-            credential, subscription_key, scope=kwargs.pop("scope", "veracity_datafabric"), **kwargs,
+            credential,
+            subscription_key,
+            scope=kwargs.pop("scope", "veracity_datafabric"),
+            **kwargs,
         )
         self._url = f"{DataFabricAPI.API_ROOT}/data/api/1"
         self.sas_cache = {}
@@ -162,7 +180,11 @@ class DataFabricAPI(ApiBase):
         return data
 
     async def add_group(
-        self, title: str, description: str, containerIds: Sequence[str], sortingOrder: float = 0.0,
+        self,
+        title: str,
+        description: str,
+        containerIds: Sequence[str],
+        sortingOrder: float = 0.0,
     ) -> Dict[str, Any]:
         """Creates a new container group for the user.
 
@@ -311,8 +333,8 @@ class DataFabricAPI(ApiBase):
         """
         data = await self.get_keytemplates()
         df = pd.DataFrame(data)
-        df['level'] = self._access_levels(df)
-        return df.sort_values('level', inplace=False)
+        df["level"] = self._access_levels(df)
+        return df.sort_values("level", inplace=False)
 
     async def get_keytemplate(
         self,
@@ -343,7 +365,9 @@ class DataFabricAPI(ApiBase):
         Returns:
             A dictionary with the key template properties.
         """
-        assert any((read, write, delete, list_)), "You must request at least one access privilege from (read, write, list, delete)."
+        assert any(
+            (read, write, delete, list_)
+        ), "You must request at least one access privilege from (read, write, list, delete)."
 
         allkeys = await self.get_keytemplates_df()
 
@@ -362,17 +386,19 @@ class DataFabricAPI(ApiBase):
         if len(keys) == 0:
             # If there are no keys with the desired duration, take the key
             # with the lower privilege and duration.
-            key = privileged.sort_values(['level', 'totalHours'], ascending=True).iloc[0]
+            key = privileged.sort_values(["level", "totalHours"], ascending=True).iloc[0]
         else:
             # Return the lower privilege key with the longest duration below that
             # requested.
-            key = keys.sort_values(['level', 'totalHours'], ascending=[True, False]).iloc[0]
+            key = keys.sort_values(["level", "totalHours"], ascending=[True, False]).iloc[0]
 
         return key.to_dict()
 
     @staticmethod
-    def _filter_key_attributes(keys: pd.DataFrame, read: bool, write: bool, list_: bool, delete: bool, exact_match: bool = False):
-        """ Filters a data frame to match privilege levels.
+    def _filter_key_attributes(
+        keys: pd.DataFrame, read: bool, write: bool, list_: bool, delete: bool, exact_match: bool = False
+    ):
+        """Filters a data frame to match privilege levels.
 
         Veracity key/access privilege attributes are mapped in columns with names:
 
@@ -639,7 +665,16 @@ class DataFabricAPI(ApiBase):
         self.access_cache[resourceId] = df
         return df.sort_values("level", inplace=False)
 
-    async def check_share_exists(self, containerId: AnyStr, userId: AnyStr, read: bool, write: bool, list_: bool, delete: bool, exact_privileges: bool = False):
+    async def check_share_exists(
+        self,
+        containerId: AnyStr,
+        userId: AnyStr,
+        read: bool,
+        write: bool,
+        list_: bool,
+        delete: bool,
+        exact_privileges: bool = False,
+    ):
         """Checks if the current user/app has shared access with another user.
 
         This method does not check key duration.
@@ -809,7 +844,7 @@ class DataFabricAPI(ApiBase):
         delete: bool = False,
         duration: int = 1,
     ):
-        """ Shares container access with a user/application.
+        """Shares container access with a user/application.
 
         Args:
             containerId: Container ID to which to share access.
@@ -838,10 +873,32 @@ class DataFabricAPI(ApiBase):
             Raises HTTPError for unknown errors.
         """
         if accessKeyTemplateId is not None:
-            return await self._share_access_with_template(containerId, userId, accessKeyTemplateId, autoRefreshed=autoRefreshed, comment=comment, startIp=startIp, endIp=endIp)
+            return await self._share_access_with_template(
+                containerId,
+                userId,
+                accessKeyTemplateId,
+                autoRefreshed=autoRefreshed,
+                comment=comment,
+                startIp=startIp,
+                endIp=endIp,
+            )
         else:
-            assert any((read, write, delete, list_)), "Must provide access key template ID or at least one privilige (read, write, delete or list)."
-            return await self._share_access_by_permission(containerId, userId, read=read, write=write, list_=list_, delete=delete, duration=duration, autoRefreshed=autoRefreshed, comment=comment, startIp=startIp, endIp=endIp)
+            assert any(
+                (read, write, delete, list_)
+            ), "Must provide access key template ID or at least one privilige (read, write, delete or list)."
+            return await self._share_access_by_permission(
+                containerId,
+                userId,
+                read=read,
+                write=write,
+                list_=list_,
+                delete=delete,
+                duration=duration,
+                autoRefreshed=autoRefreshed,
+                comment=comment,
+                startIp=startIp,
+                endIp=endIp,
+            )
 
     async def revoke_access(self, containerId: AnyStr, accessId: AnyStr):
         url = f"{self._url}/resources/{containerId}/accesses/{accessId}"
@@ -1040,7 +1097,7 @@ class DataFabricAPI(ApiBase):
                 raise HTTPError(url, resp.status, data, resp.headers, None)
 
     async def transfer_ownership(self, containerId: AnyStr, userId: AnyStr, keepAccess: bool = False) -> Dict[str, Any]:
-        """ Transfers container ownership to another user.
+        """Transfers container ownership to another user.
 
         Requirements:
             - The current user must be the container owner
@@ -1196,11 +1253,10 @@ class DataFabricAPI(ApiBase):
 class ProvisionAPI(ApiBase):
     """Access to the data fabric provisioning API (/datafabric/provisioning) in Veracity.
 
-
     All web calls are async using aiohttp.  Returns web responses exactly as
     received, usually JSON.
 
-    Arguments:
+    Attributes:
         credential: Oauth access token or the token provider (identity.Credential).
         subscription_key (str): Your application's API subscription key.  Gets
             sent in th Ocp-Apim-Subscription-Key header.
@@ -1210,10 +1266,17 @@ class ProvisionAPI(ApiBase):
     API_ROOT = "https://api.veracity.com/veracity/datafabric"
 
     def __init__(
-        self, credential: identity.Credential, subscription_key: AnyStr, version: AnyStr = None, **kwargs,
+        self,
+        credential: identity.Credential,
+        subscription_key: AnyStr,
+        version: AnyStr = None,
+        **kwargs,
     ):
         super().__init__(
-            credential, subscription_key, scope=kwargs.pop("scope", "veracity_datafabric"), **kwargs,
+            credential,
+            subscription_key,
+            scope=kwargs.pop("scope", "veracity_datafabric"),
+            **kwargs,
         )
         self._url = f"{DataFabricAPI.API_ROOT}/provisioning/api/1"
         self.sas_cache = {}
@@ -1224,12 +1287,26 @@ class ProvisionAPI(ApiBase):
         return self._url
 
     async def create_container(
-        self, shortName, title, description: str = "", region: str = "westeurope", tags: List[str] = []
+        self,
+        shortName: str,
+        title: str,
+        description: str = "",
+        region: str = "westeurope",
+        tags: List[str] = [],
+        mayContainPersonalData: bool = False,
     ) -> str:
         """Creates a new blob container in the data fabric.
 
         Reference:
             https://api-portal.veracity.com/docs/services/5a72f224978c230c4c13aadb/operations/v1-0Container_ProvisionAzureBlobContainer?
+
+        Args:
+            shortName: Valid Azure container name (letters, numbers, no spaces and special characters)
+            title: Short title displayed on the Data Fabric UI
+            description: Long description of the container.
+            region: Azure region.  Only use "westeurope"!
+            tags: List of metadata tags.
+            mayContainPersonalData: Flag if the container can contain personal data, e.g. for GDPR purposes.
 
         Returns:
             GUID of the created container.
@@ -1238,7 +1315,7 @@ class ProvisionAPI(ApiBase):
         body = {
             "storageLocation": region,
             "containerShortName": shortName,
-            "mayContainPersonalData": False,
+            "mayContainPersonalData": mayContainPersonalData,
             "title": title,
             "description": description,
             "icon": {"id": "Automatic_Information_Display", "backgroundColor": "#5594aa"},
@@ -1251,47 +1328,77 @@ class ProvisionAPI(ApiBase):
         else:
             raise HTTPError(url, resp.status, data, resp.headers, None)
 
-    async def copy_container(self, *args, **kwargs):
-        """ Copies a given Container with its content with access sharing ID.
+    async def copy_container(
+        self,
+        containerId,
+        accessId,
+        shortName,
+        title,
+        description: str = "",
+        tags: List[str] = [],
+        mayContainPersonalData: bool = False,
+        groupId=None,
+    ):
+        """Copies a given Container with its content using an access sharing ID.
 
         Reference:
             https://api-portal.veracity.com/docs/services/5a72f224978c230c4c13aadb/operations/v1-0Container_CopyContainer?
 
+        Args:
+            containerId: The container to copy (GUID).
+            accessId: The access/share used to copy the data (GUID).
+            shortName: Valid Azure container name (letters, numbers, no spaces and special characters)
+            title: Short title displayed on the Data Fabric UI
+            description: Long description of the container.
+            region: Azure region.  Only use "westeurope"!
+            tags: List of metadata tags.
+            mayContainPersonalData: Flag if the container can contain personal data, e.g. for GDPR purposes.
+            groupId: Group in which to store the container (TODO: is this used?)
+
         Returns:
             GUID of the new (copy) container ID.
         """
-        # body = {
-        #     "sourceResourceId": "00000000-0000-0000-0000-000000000000",
-        #     "groupId": "00000000-0000-0000-0000-000000000000",
-        #     "copyResourceShortName": "string",
-        #     "copyResourceMayContainPersonalData": True,
-        #     "copyResourceTitle": "string",
-        #     "copyResourceDescription": "string",
-        #     "copyResourceIcon": {
-        #         "id": "string",
-        #         "backgroundColor": "string"
-        #     },
-        #     "copyResourceTags": [
-        #         {
-        #         "title": "string",
-        #         "type": "userTag"
-        #         }
-        #     ],
-        # }
-        raise NotImplementedError()
+        url = f"{self._url}/container/copycontainer"
+        body = {
+            "sourceResourceId": containerId,
+            "copyResourceShortName": shortName,
+            "copyResourceMayContainPersonalData": mayContainPersonalData,
+            "copyResourceTitle": title,
+            "copyResourceDescription": description,
+            "copyResourceIcon": {"id": "Automatic_Information_Display", "backgroundColor": "#5594aa"},
+            "copyResourceTags": [{"title": tag, "type": "tag"} for tag in tags],
+        }
+        if groupId:
+            body["groupId"] = groupId
+        resp = await self.session.post(url, json=body, params={"accessId": accessId})
+        data = await resp.text()
+        if resp.status == 202:
+            return data
+        else:
+            raise HTTPError(url, resp.status, data, resp.headers, None)
 
-    async def delete_container(self, *args, **kwargs):
-        """ Deletes a blob container.
+    async def delete_container(self, container_id: str) -> None:
+        """Deletes a blob container given the ID.
 
         Reference:
             https://api-portal.veracity.com/docs/services/5a72f224978c230c4c13aadb/operations/v1-0Container_DeleteAzureBlobContainer?
         """
-        raise NotImplementedError()
+        url = f"{self._url}/container/{container_id}"
+        resp = await self.session.delete(url)
+        if resp.status == 202:
+            return
+        elif resp.status == 403:
+            raise UserNotOwnerError("HTTP/403 User is not the container owner so cannot delete it.")
+        elif resp.status == 404:
+            raise ContainerNotFoundError("HTTP/404 The container does not exist.")
+        else:
+            data = await resp.text()
+            raise HTTPError(url, resp.status, data, resp.headers, None)
 
     # EVENT SUBSCRIPTIONS.
 
     async def create_event_subscription(self, *args, **kwargs):
-        """ Provision a callback for custom events.
+        """Provision a callback for custom events.
 
         Call back url and subscription name Subscription name must be unique
         through the entire application.
@@ -1303,7 +1410,7 @@ class ProvisionAPI(ApiBase):
         raise NotImplementedError()
 
     async def delete_event_subscription(self, *args, **kwargs):
-        """ Delete a callback for custom events.
+        """Delete a callback for custom events.
 
         Reference:
             https://api-portal.veracity.com/docs/services/5a72f224978c230c4c13aadb/operations/v1-0Container_UnsubscribeFromAzureBlobContainerEvents?
@@ -1311,7 +1418,7 @@ class ProvisionAPI(ApiBase):
         raise NotImplementedError()
 
     async def create_blob_change_subscription(self, *args, **kwargs):
-        """ Provision a callback for blob change events.
+        """Provision a callback for blob change events.
 
         Reference:
             https://api-portal.veracity.com/docs/services/5a72f224978c230c4c13aadb/operations/v1-0Container_SubscribeToAzureBlobContainerEvents?
@@ -1319,7 +1426,7 @@ class ProvisionAPI(ApiBase):
         raise NotImplementedError()
 
     async def delete_blob_change_subscription(self, *args, **kwargs):
-        """ Delete a callback for blob change events.
+        """Delete a callback for blob change events.
 
         Reference:
             https://api-portal.veracity.com/docs/services/5a72f224978c230c4c13aadb/operations/v1-0Container_UnsubscribeFromCustomEvents?
@@ -1329,7 +1436,7 @@ class ProvisionAPI(ApiBase):
     # UTILITIES.
 
     async def list_regions(self):
-        """ Lists active Azure regions in which you can provision containers.
+        """Lists active Azure regions in which you can provision containers.
 
         Reference:
             https://api-portal.veracity.com/docs/services/5a72f224978c230c4c13aadb/operations/v1-0Regions_Get?
@@ -1337,7 +1444,7 @@ class ProvisionAPI(ApiBase):
         raise NotImplementedError()
 
     async def update_metadata(self):
-        """ Patch a container's metadata.
+        """Patch a container's metadata.
 
         Reference:
             https://api-portal.veracity.com/docs/services/5a72f224978c230c4c13aadb/operations/v1-0Container_UpdateMetadata?
