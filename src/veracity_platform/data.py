@@ -1345,7 +1345,7 @@ class ProvisionAPI(ApiBase):
             https://api-portal.veracity.com/docs/services/5a72f224978c230c4c13aadb/operations/v1-0Container_CopyContainer?
 
         Args:
-            containerId: The container to copy (GUID).
+            sourceContainerId: The container to copy (GUID).
             accessId: The access/share used to copy the data (GUID).
             shortName: Valid Azure container name (letters, numbers, no spaces and special characters)
             title: Short title displayed on the Data Fabric UI
@@ -1371,10 +1371,10 @@ class ProvisionAPI(ApiBase):
         if groupId:
             body["groupId"] = groupId
         resp = await self.session.post(url, json=body, params={"accessId": accessId})
-        data = await resp.text()
         if resp.status == 202:
-            return data
+            return
         else:
+            data = await resp.text()
             raise HTTPError(url, resp.status, data, resp.headers, None)
 
     async def delete_container(self, container_id: str) -> None:
@@ -1397,41 +1397,116 @@ class ProvisionAPI(ApiBase):
 
     # EVENT SUBSCRIPTIONS.
 
-    async def create_event_subscription(self, *args, **kwargs):
+    async def create_event_subscription(
+        self, name: str, topic: str, callbackUrl: str, regions: List[str] = ["westeurope"]
+    ) -> None:
         """Provision a callback for custom events.
 
         Call back url and subscription name Subscription name must be unique
         through the entire application.
 
+        Available topics:
+            - AccessShare
+
+        Args:
+            name: Subscription name, must be unique.
+            topics: Topic to subscribe to.
+            callbackUrl: URL for the callback which responds to events.
+            regions: List of regions to observe.  By default just West Europe.
+
         Reference:
             https://api-portal.veracity.com/docs/services/5a72f224978c230c4c13aadb/operations/v1-0Container_SubscribeToCustomEvents?
 
         """
-        raise NotImplementedError()
+        url = f"{self._url}/container/SubscribeToCustomEvents"
+        body = {
+            "subscriptionName": name,
+            "callback": callbackUrl,
+            "topic": topic,
+            "regions": regions,
+        }
+        resp = await self.session.post(url, json=body)
+        if resp.status == 202:
+            return
+        else:
+            data = await resp.text()
+            raise HTTPError(url, resp.status, data, resp.headers, None)
 
-    async def delete_event_subscription(self, *args, **kwargs):
+    async def delete_event_subscription(self, name: str):
         """Delete a callback for custom events.
+
+        Args:
+            name: Subscription name to delete.
 
         Reference:
             https://api-portal.veracity.com/docs/services/5a72f224978c230c4c13aadb/operations/v1-0Container_UnsubscribeFromAzureBlobContainerEvents?
         """
-        raise NotImplementedError()
+        url = f"{self._url}/container/SubscribeToCustomEvents"
+        body = {
+            "subscriptionName": name,
+        }
+        resp = await self.session.delete(url, json=body)
+        if resp.status == 202:
+            return
+        else:
+            data = await resp.text()
+            raise HTTPError(url, resp.status, data, resp.headers, None)
 
-    async def create_blob_change_subscription(self, *args, **kwargs):
+    async def create_blob_change_subscription(
+        self, name: str, containerId: str, events: List[str], callbackUrl: str
+    ) -> None:
         """Provision a callback for blob change events.
+
+        Call back url and subscription name Subscription name must be unique
+        through the entire application.
+
+        Available events:
+            - BlobUpserted
+
+        Args:
+            name: Subscription name, must be unique.
+            containerId: The container on which to set the subscription (GUID).
+            events: List of events to watch.
+            callbackUrl: URL for the callback which responds to events.
 
         Reference:
             https://api-portal.veracity.com/docs/services/5a72f224978c230c4c13aadb/operations/v1-0Container_SubscribeToAzureBlobContainerEvents?
         """
-        raise NotImplementedError()
+        url = f"{self._url}/container/SubscribeToBlobContainerEvents"
+        body = {
+            "subscriptionName": name,
+            "containerId": containerId,
+            "subscriptionTypes": events,
+            "callback": callbackUrl,
+        }
+        resp = await self.session.post(url, json=body)
+        if resp.status == 202:
+            return
+        else:
+            data = await resp.text()
+            raise HTTPError(url, resp.status, data, resp.headers, None)
 
-    async def delete_blob_change_subscription(self, *args, **kwargs):
+    async def delete_blob_change_subscription(self, name: str, containerId: str):
         """Delete a callback for blob change events.
+
+        Args:
+            name: Subscription name to delete.
+            containerId: The container on which to set the subscription (GUID).
 
         Reference:
             https://api-portal.veracity.com/docs/services/5a72f224978c230c4c13aadb/operations/v1-0Container_UnsubscribeFromCustomEvents?
         """
-        raise NotImplementedError()
+        url = f"{self._url}/container/SubscribeToBlobContainerEvents"
+        body = {
+            "subscriptionName": name,
+            "containerId": containerId,
+        }
+        resp = await self.session.delete(url, json=body)
+        if resp.status == 202:
+            return
+        else:
+            data = await resp.text()
+            raise HTTPError(url, resp.status, data, resp.headers, None)
 
     # UTILITIES.
 
@@ -1440,8 +1515,17 @@ class ProvisionAPI(ApiBase):
 
         Reference:
             https://api-portal.veracity.com/docs/services/5a72f224978c230c4c13aadb/operations/v1-0Regions_Get?
+
+        Returns:
+            List of active regions, each region is a dictionary of Azure region details.
         """
-        raise NotImplementedError()
+        url = f"{self._url}/regions"
+        resp = await self.session.get(url)
+        data = await resp.text()
+        if resp.status == 200:
+            return data
+        else:
+            raise HTTPError(url, resp.status, data, resp.headers, None)
 
     async def update_metadata(self):
         """Patch a container's metadata.
