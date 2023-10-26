@@ -151,6 +151,7 @@ def verify_token(token: str, audience: Sequence[str] = None) -> Dict[str, Any]:
 
     payload =jwt.decode(token, algorithms="RS256", options={"verify_signature": False})  # Decode to see payload
     isapp = bool(payload.get('appid', False))  # Only applications have 'appid'; users have 'userId'
+    
     # Get the oauth config for the Veracity authority.
     if isapp:
         config = oauth_config_microsoft()  # Applications tokens are issued by Microsoft
