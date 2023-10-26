@@ -94,12 +94,21 @@ def expand_veracity_scopes(scopes: Sequence[AnyStr], interactive: bool = False) 
     return [allowed_scopes.get(s, s) for s in scopes]
 
 
-def oauth_config() -> Dict[str, Any]:
+def oauth_config_veracity() -> Dict[str, Any]:
     """ Gets the Veracity oauth config from the internet as a dictionary.
     """
     import requests
-
     url = f"{VERACITY_AUTHORITY_HOSTNAME}/{DEFAULT_TENANT_ID}/v2.0/.well-known/openid-configuration?p={DEFAULT_POLICY}"
+    response = requests.get(url)
+    if response.status_code != 200:
+        raise HTTPError(url, response.status_code, response.text, response.headers, None)
+    return response.json()
+
+def oauth_config_microsoft() -> Dict[str, Any]:
+    """ Gets the Microsoft oauth config from the internet as a dictionary.
+    """
+    import requests
+    url = f"{MICROSOFT_AUTHORITY_HOSTNAME}/{DEFAULT_TENANT_ID}/.well-known/openid-configuration"
     response = requests.get(url)
     if response.status_code != 200:
         raise HTTPError(url, response.status_code, response.text, response.headers, None)
@@ -140,8 +149,13 @@ def verify_token(token: str, audience: Sequence[str] = None) -> Dict[str, Any]:
     import requests
     import jwt
 
+    payload =jwt.decode(token, algorithms="RS256", options={"verify_signature": False})  # Decode to see payload
+    isapp = bool(payload.get('appid', False))  # Only applications have 'appid'; users have 'userId'
     # Get the oauth config for the Veracity authority.
-    config = oauth_config()
+    if isapp:
+        config = oauth_config_microsoft()  # Applications tokens are issued by Microsoft
+    else:
+        config = oauth_config_veracity()  # User tokens are issued by Veracity
 
     # Get the Veracity keys.
     keys_url = config["jwks_uri"]
