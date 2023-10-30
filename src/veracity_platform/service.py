@@ -230,9 +230,9 @@ class ClientAPI(ApiBase):
             - https://api-portal.veracity.com/docs/services/veracity-myservices%20V3/operations/This_GetUsersForService?
         """
         if serviceId is not None:
-            url = f"{self.url}/subscribers"
-        else:
             url = f"{self.url}/services/{serviceId}/subscribers"
+        else:
+            url = f"{self.url}/subscribers"
         params = {"page": page, "pageSize": pageSize}
         resp = await self.session.get(url, params=params)
         if resp.status == 200:
@@ -249,9 +249,9 @@ class ClientAPI(ApiBase):
             - https://api-portal.veracity.com/docs/services/veracity-myservices%20V3/operations/This_GetUserForService?
         """
         if serviceId is not None:
-            url = f"{self.url}/subscribers/{userId}"
-        else:
             url = f"{self.url}/services/{serviceId}/subscribers/{userId}"
+        else:
+            url = f"{self.url}/subscribers/{userId}"
         resp = await self.session.get(url)
         if resp.status == 200:
             data = await resp.json()
