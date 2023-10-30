@@ -711,7 +711,6 @@ class DataFabricAPI(ApiBase):
         existing_shares = privileged[mask]
 
         if len(existing_shares) > 0:
-            print(existing_shares)
             return existing_shares["accessSharingId"].iloc[0]
 
     async def _share_access_by_permission(

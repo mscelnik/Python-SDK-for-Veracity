@@ -548,7 +548,7 @@ class TestDataFabricAPI(object):
     async def test_check_share_exists(self, api):
         # Different privilege levels
         access = await api.check_share_exists("MyContainer", "1", True, False, False, False, exact_privileges=True)
-        assert access == "A"
+        assert access in ["A", "A2"]  # Don't care which.
         access = await api.check_share_exists("MyContainer", "1", False, True, False, False, exact_privileges=True)
         assert access == "B"
         access = await api.check_share_exists("MyContainer", "1", False, False, True, False, exact_privileges=True)
