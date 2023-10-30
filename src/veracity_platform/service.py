@@ -4,7 +4,7 @@ References:
     - https://api-portal.veracity.com/docs/services/veracity-myservices%20V3
 """
 
-from typing import AnyStr, Tuple, List, Dict, Any
+from typing import AnyStr, Optional, Tuple, List, Dict, Any
 
 from veracity_platform.errors import UserNotFoundError
 from .base import ApiBase
@@ -222,19 +222,45 @@ class ClientAPI(ApiBase):
     ):
         raise NotImplementedError()
 
-    async def get_subscribers(self, page, pageSize=10, serviceId=None):
-        """
-        https://api-portal.veracity.com/docs/services/veracity-myservices%20V3/operations/This_GetUsers?
-        https://api-portal.veracity.com/docs/services/veracity-myservices%20V3/operations/This_GetUsersForService?
-        """
-        raise NotImplementedError()
+    async def get_subscribers(self, page: int, pageSize: int = 10, serviceId: Optional[str] = None) -> List[Dict[str, Any]]:
+        """ Get list of service subscribers, paginated (page numbers are 0-based).
 
-    async def get_subscriber(self, userId, serviceId=None):
+        References:
+            - https://api-portal.veracity.com/docs/services/veracity-myservices%20V3/operations/This_GetUsers?
+            - https://api-portal.veracity.com/docs/services/veracity-myservices%20V3/operations/This_GetUsersForService?
         """
-        https://api-portal.veracity.com/docs/services/veracity-myservices%20V3/operations/This_GetServiceUser?
-        https://api-portal.veracity.com/docs/services/veracity-myservices%20V3/operations/This_GetUserForService?
+        if serviceId is not None:
+            url = f"{self.url}/subscribers"
+        else:
+            url = f"{self.url}/services/{serviceId}/subscribers"
+        params = {"page": page, "pageSize": pageSize}
+        resp = await self.session.get(url, params=params)
+        if resp.status == 200:
+            data = await resp.json()
+            return data
+        else:
+            raise HTTPError(url, resp.status, await resp.text(), resp.headers, None)  # type: ignore
+
+    async def get_subscriber(self, userId: str, serviceId: Optional[str] = None) -> Dict[str, Any]:
+        """ Get user info, if subscribed to the service.
+
+        References:
+            - https://api-portal.veracity.com/docs/services/veracity-myservices%20V3/operations/This_GetServiceUser?
+            - https://api-portal.veracity.com/docs/services/veracity-myservices%20V3/operations/This_GetUserForService?
         """
-        raise NotImplementedError()
+        if serviceId is not None:
+            url = f"{self.url}/subscribers/{userId}"
+        else:
+            url = f"{self.url}/services/{serviceId}/subscribers/{userId}"
+        resp = await self.session.get(url)
+        if resp.status == 200:
+            data = await resp.json()
+            return data
+        elif resp.status == 404:
+            data = await resp.json()
+            raise UserNotFoundError("User not registered with the service.", data)
+        else:
+            raise HTTPError(url, resp.status, await resp.text(), resp.headers, None)  # type: ignore
 
     async def add_subscriber(self, userId, role, serviceId=None):
         """
