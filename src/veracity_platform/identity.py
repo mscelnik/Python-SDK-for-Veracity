@@ -23,10 +23,12 @@ References:
     - https://github.com/Azure-Samples/ms-identity-python-webapp
 """
 
+from collections import namedtuple
 from http.server import HTTPServer, BaseHTTPRequestHandler
-from typing import AnyStr, Dict, Sequence, Any
+from typing import AnyStr, Dict, Optional, Sequence, Any
 from urllib.error import HTTPError
 import msal
+from .errors import TokenVerificationError
 
 
 MICROSOFT_AUTHORITY_HOSTNAME = "https://login.microsoftonline.com"
@@ -66,6 +68,22 @@ CONF_SCOPES = {
     "veracity_datafabric": f"{DATAFABRIC_RESOURCE}/.default",
 }
 
+Authority = namedtuple("Authority", ["hostname", "oath_config_url", "url"])
+
+
+veracity_authority = Authority(
+    hostname=VERACITY_AUTHORITY_HOSTNAME,
+    oath_config_url=f"{VERACITY_AUTHORITY_HOSTNAME}/{DEFAULT_TENANT_ID}/v2.0/.well-known/openid-configuration?p={DEFAULT_POLICY}",
+    url=f"{VERACITY_AUTHORITY_HOSTNAME}/{DEFAULT_TENANT_ID}/{DEFAULT_POLICY}"
+)
+
+
+microsoft_authority = Authority(
+    hostname=MICROSOFT_AUTHORITY_HOSTNAME,
+    oath_config_url=f"{MICROSOFT_AUTHORITY_HOSTNAME}/{DEFAULT_TENANT_ID}/.well-known/openid-configuration",
+    url=f"{MICROSOFT_AUTHORITY_HOSTNAME}/{DEFAULT_TENANT_ID}"
+)
+
 
 def expand_veracity_scopes(scopes: Sequence[AnyStr], interactive: bool = False) -> Sequence[AnyStr]:
     """ Replaces Veracity short-hand scopes for actual scopes, scenario dependent.
@@ -94,28 +112,59 @@ def expand_veracity_scopes(scopes: Sequence[AnyStr], interactive: bool = False) 
     return [allowed_scopes.get(s, s) for s in scopes]
 
 
-def oauth_config_veracity() -> Dict[str, Any]:
-    """ Gets the Veracity oauth config from the internet as a dictionary.
+def oauth_config(authority: Authority) -> Dict[str, Any]:
+    """ Gets the oauth config from the internet as a dictionary.
     """
     import requests
-    url = f"{VERACITY_AUTHORITY_HOSTNAME}/{DEFAULT_TENANT_ID}/v2.0/.well-known/openid-configuration?p={DEFAULT_POLICY}"
-    response = requests.get(url)
+    response = requests.get(authority.oath_config_url)
     if response.status_code != 200:
-        raise HTTPError(url, response.status_code, response.text, response.headers, None)
-    return response.json()
-
-def oauth_config_microsoft() -> Dict[str, Any]:
-    """ Gets the Microsoft oauth config from the internet as a dictionary.
-    """
-    import requests
-    url = f"{MICROSOFT_AUTHORITY_HOSTNAME}/{DEFAULT_TENANT_ID}/.well-known/openid-configuration"
-    response = requests.get(url)
-    if response.status_code != 200:
-        raise HTTPError(url, response.status_code, response.text, response.headers, None)
+        raise HTTPError(authority.oath_config_url, response.status_code, response.text, response.headers, None)
     return response.json()
 
 
-def verify_token(token: str, audience: Sequence[str] = None) -> Dict[str, Any]:
+def get_oauth_key(token: str) -> Dict[str, str]:
+    """ Gets the oauth decryption key and issuer for the given token.
+
+    First tries the Veracity authority (for user tokens) the the Microsoft
+    authority (for client app tokens).
+    """
+    import requests
+    import jwt
+
+    # Try these authorities in order.
+    authorities = [veracity_authority, microsoft_authority]
+
+    for authority in authorities:
+        try:
+            config = oauth_config(authority)
+
+            # Get the JWT keys.
+            keys_url = config["jwks_uri"]
+            response = requests.get(keys_url)
+
+            if response.status_code != 200:
+                raise HTTPError(keys_url, response.status_code, response.text, response.headers, None)
+            key_data = response.json()
+
+            # Get the key used by the token.
+            jwk_set = jwt.PyJWKSet(key_data["keys"])
+            header = jwt.get_unverified_header(token)
+            jwk = next(filter(lambda jwk: jwk.key_id == header["kid"], jwk_set.keys))
+
+            return {"key": jwk.key, "issuer": config['issuer']}
+
+        except HTTPError:
+            # We have bigger problems than invalid keys!
+            raise
+
+        except StopIteration:
+            # Try the next authority.
+            continue
+
+    raise RuntimeError("No JWT keys found for token!")
+
+
+def verify_token(token: str, audience: Optional[str] = None) -> Dict[str, Any]:
     """ Verifies a JWT access token with the Veracity authority.
 
     Use this method to validate/verify incoming tokens to your application.  Do
@@ -146,33 +195,19 @@ def verify_token(token: str, audience: Sequence[str] = None) -> Dict[str, Any]:
     Raises:
         Exception if token validation failed.
     """
-    import requests
     import jwt
 
-    payload =jwt.decode(token, algorithms="RS256", options={"verify_signature": False})  # Decode to see payload
-    isapp = bool(payload.get('appid', False))  # Only applications have 'appid'; users have 'userId'
-    
-    # Get the oauth config for the Veracity authority.
-    if isapp:
-        config = oauth_config_microsoft()  # Applications tokens are issued by Microsoft
-    else:
-        config = oauth_config_veracity()  # User tokens are issued by Veracity
+    try:
+        # Get the decryption key from Veracity or Microsoft.
+        decryptor = get_oauth_key(token)
 
-    # Get the Veracity keys.
-    keys_url = config["jwks_uri"]
-    response = requests.get(keys_url)
-    if response.status_code != 200:
-        raise HTTPError(keys_url, response.status_code, response.text, response.headers, None)
-    key_data = response.json()
-
-    # Get the key used by the token.
-    jwk_set = jwt.PyJWKSet(key_data["keys"])
-    header = jwt.get_unverified_header(token)
-    jwk = next(filter(lambda jwk: jwk.key_id == header["kid"], jwk_set.keys))
-
-    # Verify the token by decoding it.
-    options = {"verify_signature": True, "verify_aud": audience is not None}
-    return jwt.decode(token, jwk.key, algorithms=["RS256"], options=options, audience=audience, issuer=config["issuer"])
+        # Verify the token by decoding it.
+        options = {"verify_signature": True, "verify_aud": audience is not None}
+        return jwt.decode(token, decryptor["key"], algorithms=["RS256"], options=options, audience=audience, issuer=decryptor["issuer"])
+    except RuntimeError as err:
+        raise TokenVerificationError("Could not find token decryption key.") from err
+    except jwt.DecodeError as jwterr:
+        raise TokenVerificationError("Token cannot be verified!") from jwterr
 
 
 class IdentityError(Exception):
@@ -323,7 +358,7 @@ class ClientSecretCredential(Credential):
     """
 
     def __init__(
-        self, client_id: AnyStr, client_secret: AnyStr, resource: AnyStr = None, **kwargs,
+        self, client_id: AnyStr, client_secret: AnyStr, resource: Optional[AnyStr] = None, **kwargs,
     ):
         # If we want to use client/secret auth we need to use the v1 endpoints.
         app = msal.ConfidentialClientApplication(

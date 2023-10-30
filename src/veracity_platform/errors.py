@@ -27,3 +27,8 @@ class PermissionError(VeracityError):
     """ User does not have permission to perform action.
     """
     pass
+
+
+class TokenVerificationError(VeracityError):
+    """ Token was not verified."""
+    pass
