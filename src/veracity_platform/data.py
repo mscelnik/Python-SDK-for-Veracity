@@ -2,7 +2,7 @@
 """
 
 
-from typing import Any, AnyStr, List, Mapping, Sequence, Dict
+from typing import Any, AnyStr, List, Mapping, Optional, Sequence, Dict, Union
 from urllib.error import HTTPError
 from xmlrpc.client import Boolean
 import pandas as pd
@@ -43,9 +43,9 @@ class DataFabricAPI(ApiBase):
 
     def __init__(
         self,
-        credential: identity.Credential,
+        credential: Union[identity.Credential, str],
         subscription_key: AnyStr,
-        version: AnyStr = None,
+        version: Optional[AnyStr] = None,
         **kwargs,
     ):
         super().__init__(
@@ -543,7 +543,7 @@ class DataFabricAPI(ApiBase):
 
         me = await self.whoami()
         all_accesses = await self.get_accesses_df(containerId, pageSize=-1)
-        expiry = pd.to_datetime(all_accesses["keyExpiryTimeUTC"])
+        expiry = pd.to_datetime(all_accesses["keyExpiryTimeUTC"], utc=True, format="ISO8601")
 
         # Remove keys which are expired and cannot be refreshed.
         mask = all_accesses["autoRefreshed"] | (expiry >= datetime.now(timezone.utc))
