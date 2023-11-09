@@ -15,7 +15,7 @@ from urllib.error import HTTPError
 
 
 class UserAPI(ApiBase):
-    """ Access to the current user endpoints (/my) in the Veracity REST-API.
+    """Access to the current user endpoints (/my) in the Veracity REST-API.
 
     All web calls are async using aiohttp.  Returns web responses exactly as
     received, usually JSON.
@@ -31,7 +31,10 @@ class UserAPI(ApiBase):
 
     def __init__(self, credential, subscription_key, version="v3", **kwargs):
         super().__init__(
-            credential, subscription_key, scope=kwargs.pop("scope", "veracity_service"), **kwargs,
+            credential,
+            subscription_key,
+            scope=kwargs.pop("scope", "veracity_service"),
+            **kwargs,
         )
         self._url = f"{UserAPI.API_ROOT}/{version}/my"
 
@@ -40,7 +43,7 @@ class UserAPI(ApiBase):
         return self._url
 
     async def get_companies(self):
-        """ Gets all companies related to the current user.
+        """Gets all companies related to the current user.
 
         References:
             - https://api-portal.veracity.com/docs/services/veracity-myservices%20V3/operations/My_GetMyCompanies?
@@ -53,7 +56,7 @@ class UserAPI(ApiBase):
         return data
 
     async def get_messages(self, all=False):
-        """ Reads the current user's messages.
+        """Reads the current user's messages.
 
         References:
             - https://api-portal.veracity.com/docs/services/veracity-myservices%20V3/operations/My_GetMessagesAsync?
@@ -66,7 +69,7 @@ class UserAPI(ApiBase):
         return data
 
     async def get_message_count(self) -> int:
-        """ Get unread message count for current user.
+        """Get unread message count for current user.
 
         References:
             - https://api-portal.veracity.com/docs/services/veracity-myservices%20V3/operations/My_GetMessageCount?
@@ -87,7 +90,7 @@ class UserAPI(ApiBase):
         return data
 
     async def mark_messages_read(self):
-        """ Marks all unread messages as read.
+        """Marks all unread messages as read.
 
         References:
             - https://api-portal.veracity.com/docs/services/veracity-myservices%20V3/operations/5db14424acc4d910fcde88b6?
@@ -95,7 +98,7 @@ class UserAPI(ApiBase):
         raise NotImplementedError()
 
     async def validate_policies(self, returnUrl=None):
-        """ Validates all policies and returns a list of the policies that needs attention/
+        """Validates all policies and returns a list of the policies that needs attention/
 
         References:
             - https://api-portal.veracity.com/docs/services/veracity-myservices%20V3/operations/My_ValidatePolicies?
@@ -113,7 +116,7 @@ class UserAPI(ApiBase):
     async def validate_service_policy(
         self, serviceId: AnyStr, returnUrl=None, supportCode=None
     ) -> Tuple[bool, List[AnyStr]]:
-        """ Validates the user policies for the specified service.
+        """Validates the user policies for the specified service.
 
         References:
             - https://api-portal.veracity.com/docs/services/veracity-myservices%20V3/operations/5f61dfcff2522e11c4b17ecf?
@@ -137,7 +140,7 @@ class UserAPI(ApiBase):
             raise HTTPError(endpoint, resp.status, data, resp.headers, None)
 
     async def get_profile(self):
-        """ Retreives the profile of the current logged in user.
+        """Retreives the profile of the current logged in user.
 
         References:
             - https://api-portal.veracity.com/docs/services/veracity-myservices%20V3/operations/My_Info?
@@ -150,7 +153,7 @@ class UserAPI(ApiBase):
         return data
 
     async def get_services(self) -> List[Dict[str, Any]]:
-        """ Returns all services for the current user.
+        """Returns all services for the current user.
 
         References:
             - https://api-portal.veracity.com/docs/services/veracity-myservices%20V3/operations/My_MyServices?
@@ -163,7 +166,7 @@ class UserAPI(ApiBase):
         return data
 
     async def get_widgets(self):
-        """ Returns all widgets for the user.
+        """Returns all widgets for the user.
 
         Mainly intended to be used by the Veracity Mobile app.
 
@@ -178,7 +181,7 @@ class UserAPI(ApiBase):
         return data
 
     async def get_picture(self) -> Dict[str, str]:
-        """ Gets the profile picture of the current user
+        """Gets the profile picture of the current user
 
         References:
             - https://api-portal.veracity.com/docs/services/veracity-myservices%20V3/operations/607160215d44630fbc66e6f5?
@@ -187,7 +190,7 @@ class UserAPI(ApiBase):
 
 
 class ClientAPI(ApiBase):
-    """ Access to the app client endpoints (/this) in the Veracity REST-API.
+    """Access to the app client endpoints (/this) in the Veracity REST-API.
 
     All web calls are async using aiohttp.  Returns web responses exactly as
     received, usually JSON.
@@ -203,7 +206,10 @@ class ClientAPI(ApiBase):
 
     def __init__(self, credential, subscription_key, version="v3", **kwargs):
         super().__init__(
-            credential, subscription_key, scope=kwargs.pop("scope", "veracity_service"), **kwargs,
+            credential,
+            subscription_key,
+            scope=kwargs.pop("scope", "veracity_service"),
+            **kwargs,
         )
         self._url = f"{ClientAPI.API_ROOT}/{version}/this"
 
@@ -218,12 +224,23 @@ class ClientAPI(ApiBase):
         raise NotImplementedError()
 
     async def post_notification(
-        self, name, content, id_, timeStamp, recipients, serviceId, channelId=None, type_=0, highPriority=False,
+        self,
+        name,
+        content,
+        id_,
+        timeStamp,
+        recipients,
+        serviceId,
+        channelId=None,
+        type_=0,
+        highPriority=False,
     ):
         raise NotImplementedError()
 
-    async def get_subscribers(self, page: int, pageSize: int = 10, serviceId: Optional[str] = None) -> List[Dict[str, Any]]:
-        """ Get list of service subscribers, paginated (page numbers are 0-based).
+    async def get_subscribers(
+        self, page: int, pageSize: int = 10, serviceId: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        """Get list of service subscribers, paginated (page numbers are 0-based).
 
         References:
             - https://api-portal.veracity.com/docs/services/veracity-myservices%20V3/operations/This_GetUsers?
@@ -242,7 +259,7 @@ class ClientAPI(ApiBase):
             raise HTTPError(url, resp.status, await resp.text(), resp.headers, None)  # type: ignore
 
     async def get_subscriber(self, userId: str, serviceId: Optional[str] = None) -> Dict[str, Any]:
-        """ Get user info, if subscribed to the service.
+        """Get user info, if subscribed to the service.
 
         References:
             - https://api-portal.veracity.com/docs/services/veracity-myservices%20V3/operations/This_GetServiceUser?
@@ -257,7 +274,8 @@ class ClientAPI(ApiBase):
             data = await resp.json()
             return data
         elif resp.status == 404:
-            data = await resp.json()
+            # FIXME: API should return JSON upon HTTP/404 but actually returns plain text.
+            data = await resp.text()
             raise UserNotFoundError("User not registered with the service.", data)
         else:
             raise HTTPError(url, resp.status, await resp.text(), resp.headers, None)  # type: ignore
@@ -309,7 +327,7 @@ class ClientAPI(ApiBase):
             raise HTTPError(url, resp.status, await resp.text(), resp.headers, None)
 
     async def get_user_picture(self, serviceId, userId) -> Dict[str, str]:
-        """ Gets a user profile picture.
+        """Gets a user profile picture.
 
         References:
             - https://api-portal.veracity.com/docs/services/veracity-myservices%20V3/operations/607160215d44630fbc66e6f6?
@@ -328,7 +346,7 @@ class ClientAPI(ApiBase):
         type: int = 0,
         highPriority: bool = False,
     ):
-        """ Send notification to your users through the Veracity notification service.
+        """Send notification to your users through the Veracity notification service.
 
         References:
             - https://api-portal.veracity.com/docs/services/veracity-myservices%20V3/operations/This_NotifyUsers?
@@ -343,7 +361,7 @@ class ClientAPI(ApiBase):
 
 
 class DirectoryAPI(ApiBase):
-    """ Access to the directory endpoints (/directory) in the Veracity REST-API.
+    """Access to the directory endpoints (/directory) in the Veracity REST-API.
 
     All web calls are async using aiohttp.  Returns web responses exactly as
     received, usually JSON.
@@ -359,7 +377,10 @@ class DirectoryAPI(ApiBase):
 
     def __init__(self, credential, subscription_key, version="v3", **kwargs):
         super().__init__(
-            credential, subscription_key, scope=kwargs.pop("scope", "veracity_service"), **kwargs,
+            credential,
+            subscription_key,
+            scope=kwargs.pop("scope", "veracity_service"),
+            **kwargs,
         )
         self._url = f"{ClientAPI.API_ROOT}/{version}/directory"
 
@@ -402,7 +423,7 @@ class DirectoryAPI(ApiBase):
         raise NotImplementedError()
 
     async def get_service_status(self) -> Dict[str, Any]:
-        """ Get the status of the service container.
+        """Get the status of the service container.
         https://api-portal.veracity.com/docs/services/veracity-myservices%20V3/operations/Options_ServiceStatus?
         """
         raise NotImplementedError()
@@ -428,49 +449,49 @@ class DirectoryAPI(ApiBase):
     # USER DIRECTORY.
 
     async def accept_terms(self):
-        """ Accept the service and platform terms on behalf of the logged in user.
+        """Accept the service and platform terms on behalf of the logged in user.
         https://api-portal.veracity.com/docs/services/veracity-myservices%20V3/operations/5db14425acc4d910fcde88c2?
         """
         raise NotImplementedError()
 
     async def activate_account(self, authToken: str):
-        """ Activates a user by providing the activation token obtained in 'me/exchange/otp'
+        """Activates a user by providing the activation token obtained in 'me/exchange/otp'
         https://api-portal.veracity.com/docs/services/veracity-myservices%20V3/operations/5db14425acc4d910fcde88be?
         """
         raise NotImplementedError()
 
     async def delete_user(self, userId: str):
-        """ Delete user account.
+        """Delete user account.
         https://api-portal.veracity.com/docs/services/veracity-myservices%20V3/operations/5db14425acc4d910fcde88ba?
         """
         raise NotImplementedError()
 
     async def exchange_otp_code(self, otpAuthCode: str, emailAddress: str):
-        """ Exchange the OTP code with an activation token
+        """Exchange the OTP code with an activation token
         https://api-portal.veracity.com/docs/services/veracity-myservices%20V3/operations/5db14425acc4d910fcde88c0?
         """
         raise NotImplementedError()
 
     async def get_pending_activation(self):
-        """ Get the data currently registered on the new user
+        """Get the data currently registered on the new user
         https://api-portal.veracity.com/docs/services/veracity-myservices%20V3/operations/5db14425acc4d910fcde88bf?
         """
         raise NotImplementedError()
 
     async def get_user(self, userId: str):
-        """ Returns the full profile for the user with the provided id
+        """Returns the full profile for the user with the provided id
         https://api-portal.veracity.com/docs/services/veracity-myservices%20V3/operations/5db14424acc4d910fcde88b9?
         """
         raise NotImplementedError()
 
     async def get_users(self, userId: List[str]):
-        """ Returns the full profile for multiple users
+        """Returns the full profile for multiple users
         https://api-portal.veracity.com/docs/services/veracity-myservices%20V3/operations/UsersDirectory_GetUsersIn?
         """
         raise NotImplementedError()
 
     async def get_user_companies(self, userId: str):
-        """ Returns a list of companies tied to a spescified user.
+        """Returns a list of companies tied to a spescified user.
         https://api-portal.veracity.com/docs/services/veracity-myservices%20V3/operations/UsersDirectory_GetUserCompanies?
         """
         raise NotImplementedError()
